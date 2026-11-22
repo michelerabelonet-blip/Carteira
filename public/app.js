@@ -637,6 +637,15 @@
   // ---------- eventos gerais ----------
   function baixarCSV() {
     var texto = '﻿' + L.paraCSV(estado);
+    // No celular (sobretudo no iPhone com o app instalado) o download direto não funciona bem:
+    // abre a folha de compartilhar, de onde dá para salvar em Arquivos, mandar por WhatsApp, e-mail etc.
+    try {
+      var arquivo = new File([texto], 'carteira.csv', { type: 'text/csv' });
+      if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+        navigator.share({ files: [arquivo], title: 'Minha carteira' }).catch(function () { /* cancelou */ });
+        return;
+      }
+    } catch (e) { /* segue para o download comum */ }
     var blob = new Blob([texto], { type: 'text/csv;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -1053,6 +1062,59 @@
     });
   }
 
+  // ---------- app instalável (PWA) ----------
+  var CHAVE_INSTALAR = 'montador.v1.instalar-dispensado';
+  var eventoInstalar = null;
+
+  function jaInstalado() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  }
+  function ehIOS() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function instalarDispensado() { try { return localStorage.getItem(CHAVE_INSTALAR) === '1'; } catch (e) { return false; } }
+
+  function mostrarConviteInstalar() {
+    if (jaInstalado() || dentroDeIframe() || instalarDispensado()) { $('instalar').hidden = true; return; }
+    var texto = $('instalarTexto'), botao = $('btnInstalar');
+    if (eventoInstalar) {
+      // Android/Chrome: o navegador deixa instalar com um toque
+      texto.textContent = 'Instale o app para abrir direto da tela inicial, em tela cheia.';
+      botao.hidden = false;
+    } else if (ehIOS()) {
+      // iPhone/iPad: não há botão de instalar; o caminho é pelo menu Compartilhar
+      texto.textContent = 'Para instalar no iPhone: toque em Compartilhar (o quadrado com a seta) e depois em “Adicionar à Tela de Início”.';
+      botao.hidden = true;
+    } else {
+      $('instalar').hidden = true;
+      return;
+    }
+    $('instalar').hidden = false;
+  }
+
+  function prepararInstalacao() {
+    window.addEventListener('beforeinstallprompt', function (ev) {
+      ev.preventDefault();
+      eventoInstalar = ev;
+      mostrarConviteInstalar();
+    });
+    window.addEventListener('appinstalled', function () { eventoInstalar = null; $('instalar').hidden = true; });
+    $('btnInstalar').addEventListener('click', function () {
+      if (!eventoInstalar) return;
+      eventoInstalar.prompt();
+      eventoInstalar.userChoice.then(function () { eventoInstalar = null; $('instalar').hidden = true; });
+    });
+    $('btnInstalarFechar').addEventListener('click', function () {
+      try { localStorage.setItem(CHAVE_INSTALAR, '1'); } catch (e) { /* sem armazenamento: ok */ }
+      $('instalar').hidden = true;
+    });
+    mostrarConviteInstalar();
+    // service worker: deixa o app instalável e abrir sem internet; no iframe do Framer não é necessário
+    if ('serviceWorker' in navigator && !dentroDeIframe() && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () { /* ok */ }); });
+    }
+  }
+
   // ---------- altura para quando estiver dentro de um iframe (Framer) ----------
   function observarAltura() {
     if (window.parent === window || typeof ResizeObserver === 'undefined') return;
@@ -1089,6 +1151,7 @@
       mostrarTela('carregando');
       iniciarConta();
     }
+    prepararInstalacao();
     observarAltura();
   }
 

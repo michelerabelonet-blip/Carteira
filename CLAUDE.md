@@ -13,6 +13,7 @@ Leia o `README.md` para a arquitetura e os passos de publicação.
 - Cores: no máximo 8 classes, uma cor da paleta validada por classe (`CORES` em `carteira-logica.js`). Não gere uma 9ª cor.
 - Embed no Framer: o app avisa a altura por `postMessage` (`montadorAltura`).
 - **Login obrigatório** quando o Supabase está configurado: telas `#telaLogin`, `#telaCarregando` e `#app` (função `mostrarTela` em `app.js`). Nenhum dado de carteira aparece nem fica no DOM sem sessão (`aoSair` esvazia tudo). O modo visitante só existe sem Supabase (desenvolvimento local), e o build do Render falha sem as chaves.
+- **PWA:** `manifest.json`, `sw.js` e `icones/` fazem o app ser instalável (Android e iPhone). O `sw.js` é **rede primeiro** e só toca em arquivos do próprio site: nunca cache de Supabase/Google nem de dados de carteira. Se mudar arquivos do app, confira a lista `BASICOS` do `sw.js` (o `test/pwa.test.js` checa que todos existem). Ícones: `node scripts/gerar-icones.js`. Campos de texto têm 16px em tela de toque (evita o zoom do iPhone).
 - Google: botão aparece só se o Supabase tiver o provedor ligado (`googleAtivo`). Dentro de iframe o Google bloqueia, então o botão abre `?entrar=google` em outra aba.
 
 ## Comandos

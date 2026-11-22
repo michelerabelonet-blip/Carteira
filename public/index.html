@@ -2,13 +2,30 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icones/favicon-32.png">
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Carteira">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Montador de Carteira</title>
 <meta name="description" content="Monte sua carteira por classes e ativos, defina metas, veja quanto aportar e salve na sua conta.">
 <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
+
+<!-- Convite para instalar o app (só aparece no navegador do celular, nunca no app já instalado). -->
+<div class="instalar" id="instalar" hidden role="region" aria-label="Instalar o aplicativo">
+  <p id="instalarTexto"></p>
+  <div class="grupo-botoes">
+    <button type="button" class="btn peq primario" id="btnInstalar" hidden>Instalar</button>
+    <button type="button" class="btn peq" id="btnInstalarFechar">Agora não</button>
+  </div>
+</div>
 
 <!-- Telas de entrada: com contas ativas, a carteira só aparece depois do login. -->
 <section class="tela-login" id="telaLogin" hidden aria-label="Entrar no Montador de Carteira">

@@ -15,6 +15,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: manipulation; }
 body {
   background: var(--superficie);
   color: var(--tinta);
@@ -36,7 +37,19 @@ h1, h2, h3, p { margin: 0; }
   max-width: 1040px;
   margin: 0 auto;
   padding: 20px 16px 28px;
+  /* celulares com notch e barra de gestos: não deixa o conteúdo ficar por baixo */
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
 }
+
+/* convite para instalar */
+.instalar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap;
+  padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+  background: var(--suave); border-bottom: 1px solid var(--linha); font-size: 13px; color: var(--tinta-2);
+}
+.instalar p { flex: 1 1 220px; }
 
 /* ---------- topo ---------- */
 .topo { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; margin-bottom: 16px; }
@@ -336,6 +349,14 @@ tr.classe td.pc { color: var(--tinta); }
   .btn, .campo { min-height: 40px; }
   .btn.peq { min-height: 36px; }
   .barra-linha { grid-template-columns: minmax(60px, 30%) minmax(0, 1fr) 68px; }
+}
+
+/* Celular/tablet (toque): o iPhone dá zoom ao focar um campo com letra menor que 16px; isto evita. */
+@media (pointer: coarse) {
+  input, select, textarea, .campo, .campo-nome, .tabela td.val .campo { font-size: 16px; }
+  .icone-btn { width: 36px; height: 36px; }
+  .btn-add { min-height: 36px; }
+  .seg-btn { min-height: 36px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

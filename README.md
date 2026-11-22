@@ -112,6 +112,33 @@ isso ao Supabase; não precisa de novo deploy). A conta é criada no primeiro ac
 Dentro do Framer (iframe) o Google **não deixa** abrir o login; por isso, ali, o botão abre o app em outra aba, em tela cheia, e
 a pessoa continua por lá. Se um e-mail já tem conta com senha, o Supabase junta as duas formas de entrada na mesma conta.
 
+### 4c. Instalar no celular (app para Android e iPhone)
+
+O site é um **PWA**: dá para instalá-lo como app, com ícone na tela inicial e abertura em tela cheia, sem loja e sem custo.
+Depois do deploy, abra `https://montador-carteira.onrender.com` **direto no navegador do celular** (não dentro do Framer):
+
+- **Android (Chrome):** aparece uma faixa "Instale o app" com o botão **Instalar**. Se não aparecer: menu ⋮ > **Instalar app**
+  (ou *Adicionar à tela inicial*).
+- **iPhone/iPad (Safari):** não existe botão; a faixa explica: toque em **Compartilhar** (o quadrado com a seta) >
+  **Adicionar à Tela de Início**. Vale também para o Chrome do iPhone, no iOS 16.4 ou mais novo.
+
+O que vale saber:
+
+- **Conta:** dentro do app instalado, entre de novo com e-mail e senha. No iPhone, o app instalado e o Safari **não dividem o
+  login**. O link do e-mail de confirmação abre no navegador; confirme lá e depois entre no app.
+- **Google:** o login pelo botão do Google dentro do app instalado pode não funcionar em todos os aparelhos. Se der problema,
+  use e-mail e senha.
+- **Sem internet:** a tela abre (o service worker guarda os arquivos), mas as carteiras vêm do Supabase e precisam de internet.
+- **Planilha:** no celular, **Baixar planilha** abre a folha de compartilhar (salvar em Arquivos, WhatsApp, e-mail...).
+- **Atualização:** com internet o app sempre carrega a versão mais nova (estratégia "rede primeiro" em `public/sw.js`).
+  Se mudar a lista de arquivos guardados, aumente `VERSAO` no `sw.js` para limpar as cópias antigas.
+- **Ícones:** são gerados por `node scripts/gerar-icones.js` (sem dependências), a partir do mesmo desenho do gráfico.
+
+**Lojas (opcional, com custo):** dá para empacotar este mesmo site. *Play Store:* conta de desenvolvedor Google (taxa única de
+US$ 25) e um pacote TWA (PWABuilder), com o arquivo `/.well-known/assetlinks.json` no site. *App Store:* conta Apple Developer
+(US$ 99/ano), um Mac com Xcode (ou um serviço de build na nuvem) e um empacotador (Capacitor). A Apple costuma recusar apps que
+são só um site embrulhado; por isso o PWA instalável é o caminho recomendado para o iPhone.
+
 ### 5. Framer
 
 No site do Framer, adicione um componente **Embed**, modo **HTML**, e cole `framer/embed.html`
@@ -167,12 +194,14 @@ public/                 o site (é isso que o Render publica)
   carteira-logica.js    regras de cálculo, sem tela (testada)
   grafico.js            rosca e barras em SVG/HTML
   armazenamento.js      navegador (visitante) e Supabase (conta)
-  app.js                tela, desfazer, metas, aporte, login
+  app.js                tela, desfazer, metas, aporte, login, convite para instalar
+  manifest.json, sw.js  app instalável (PWA) e abertura sem internet
+  icones/               ícones do app (gerados por scripts/gerar-icones.js)
   vendor/supabase.js    biblioteca do Supabase (cópia local)
   config.js             gerado no build (não vai para o Git)
 supabase/schema.sql     tabela, RLS e gatilho
 scripts/                gerar-config.js (build), servir.js (local)
-test/                   logica.test.js, config.test.js
+test/                   logica.test.js, config.test.js, pwa.test.js
 sql-test/               testa o supabase/schema.sql num Postgres em memória (PGlite)
 framer/embed.html       código para colar no Framer
 render.yaml             Blueprint do Render
