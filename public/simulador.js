@@ -36,7 +36,8 @@
     { k: 'aporte', rotulo: 'Aporte por mês', tipo: 'dinheiro' },
     { k: 'reajuste', rotulo: 'Reajuste do aporte por ano', tipo: 'pct', ajuda: 'Quanto você aumenta o aporte a cada ano. 0 = sempre o mesmo valor.' },
     { k: 'taxa', rotulo: 'Rentabilidade por ano', tipo: 'pct', ajuda: 'Taxa efetiva ao ano. Use a taxa já descontada de impostos e taxas para ver o valor líquido.' },
-    { k: 'inflacao', rotulo: 'Inflação por ano', tipo: 'pct', ajuda: 'Mostra o valor em dinheiro de hoje e corrige a retirada, se você escolher isso.' }
+    { k: 'inflacao', rotulo: 'Inflação por ano', tipo: 'pct', ajuda: 'Mostra o valor em dinheiro de hoje e corrige a retirada, se você escolher isso.' },
+    { k: 'impostoGanho', rotulo: 'Imposto sobre o ganho', tipo: 'pct', ajuda: '0 = sem imposto. Ex.: 15 tira 15% dos juros (valor final menos o que você aportou) no fim.' }
   ];
 
   // depois de parar de aportar
@@ -148,10 +149,11 @@
       el.heroValor = h('p', { class: 'hero-valor' });
       el.heroSub = h('p', { class: 'hero-sub' });
       el.heroUltimo = h('p', { class: 'hero-sub' });
+      el.heroImposto = h('p', { class: 'hero-sub' });
       function tile(chave, rotulo) {
-        var v = h('div', { class: 'kpi-valor' }), d = h('div', { class: 'kpi-detalhe' });
-        el[chave] = { v: v, d: d };
-        return h('div', { class: 'kpi' }, [h('div', { class: 'kpi-rotulo' }, [rotulo]), v, d]);
+        var r = h('div', { class: 'kpi-rotulo' }, [rotulo]), v = h('div', { class: 'kpi-valor' }), d = h('div', { class: 'kpi-detalhe' });
+        el[chave] = { r: r, v: v, d: d };
+        return h('div', { class: 'kpi' }, [r, v, d]);
       }
       var kpis = h('div', { class: 'kpis' }, [tile('kAportado', 'Total aportado'), tile('kJuros', 'Juros ganhos'), tile('kParte', 'Juros no total')]);
 
@@ -161,6 +163,7 @@
         legendaItem(L.CORES[0], 'Aportado (seu dinheiro)'), legendaItem(L.CORES[1], 'Juros'),
         h('span', { class: 'ajuda' }, ['Eixo de baixo: sua idade.'])
       ]);
+      el.notaGrafico = h('p', { class: 'ajuda sim-nota' });
 
       el.meta = h('div', { class: 'sim-meta', 'aria-live': 'polite' });
 
@@ -177,27 +180,29 @@
       ])]);
 
       var resultado = h('div', { class: 'sim-resultado' }, [
-        h('div', { class: 'hero' }, [el.heroRotulo, el.heroValor, el.heroSub, el.heroUltimo]),
+        h('div', { class: 'hero' }, [el.heroRotulo, el.heroValor, el.heroSub, el.heroImposto, el.heroUltimo]),
         kpis,
         h('h3', { class: 'sim-titulo' }, ['Como o valor cresce']),
-        grafico, legenda, el.meta,
+        grafico, legenda, el.notaGrafico, el.meta,
         el.rendaTitulo, kRenda, el.rendaNota, tabelaPrazos, el.rendaMeta
       ]);
 
       // ----- cenários e tabela ano a ano -----
       el.cenarios = h('tbody');
+      el.thFinal = h('th', { scope: 'col' }, ['Valor final']);
       var cenarios = h('section', { class: 'sim-secao' }, [
         h('h3', { class: 'sim-titulo' }, ['E se a rentabilidade for diferente?']),
         h('div', { class: 'rolavel' }, [h('table', { class: 'tab-metas sim-tab' }, [
           h('caption', { class: 'so-leitor' }, ['Valor final para rentabilidades próximas da sua']),
-          h('thead', null, [h('tr', null, [h('th', { scope: 'col' }, ['Rentabilidade']), h('th', { scope: 'col' }, ['Valor final']), h('th', { scope: 'col' }, ['Juros']), h('th', { scope: 'col' }, ['Em dinheiro de hoje'])])]),
+          h('thead', null, [h('tr', null, [h('th', { scope: 'col' }, ['Rentabilidade']), el.thFinal, h('th', { scope: 'col' }, ['Juros']), h('th', { scope: 'col' }, ['Em dinheiro de hoje'])])]),
           el.cenarios
         ])])
       ]);
 
       el.anoAAno = h('tbody');
+      el.resumoTabela = h('summary', null, ['Tabela ano a ano']);
       var tabela = h('details', { class: 'sim-secao sim-detalhes' }, [
-        h('summary', null, ['Tabela ano a ano']),
+        el.resumoTabela,
         h('div', { class: 'rolavel' }, [h('table', { class: 'tab-metas sim-tab' }, [
           h('caption', { class: 'so-leitor' }, ['Aportado, juros e total em cada ano']),
           h('thead', null, [h('tr', null, [h('th', { scope: 'col' }, ['Idade']), h('th', { scope: 'col' }, ['Aportado']), h('th', { scope: 'col' }, ['Juros']), h('th', { scope: 'col' }, ['Total']), h('th', { scope: 'col' }, ['Em dinheiro de hoje'])])]),
@@ -210,7 +215,7 @@
       raiz.appendChild(h('div', { class: 'sim-grade' }, [form, resultado]));
       raiz.appendChild(cenarios);
       raiz.appendChild(tabela);
-      raiz.appendChild(h('p', { class: 'rodape' }, ['Não considera imposto de renda, taxas de administração nem variações do mercado. Os aportes são sempre iguais (ou reajustados pelo percentual informado) e a rentabilidade é constante. A renda passiva é uma conta com as taxas que você informa: não é promessa de rendimento nem recomendação de investimento.']));
+      raiz.appendChild(h('p', { class: 'rodape' }, ['Só considera imposto se você informar a alíquota (campo "Imposto sobre o ganho", descontado de uma vez no fim). Não considera taxas de administração, câmbio nem variações do mercado. Os aportes são sempre iguais (ou reajustados pelo percentual informado) e a rentabilidade é constante. A renda passiva é uma conta com as taxas que você informa: não é promessa de rendimento nem recomendação de investimento.']));
       montado = true;
     }
 
@@ -229,21 +234,35 @@
     function calcular() {
       var s = L.validarSimulador(sim), r = L.projetar(s), n = s.idadeFinal - s.idadeAtual;
 
-      el.heroRotulo.textContent = 'Em ' + anosTxt(n) + ' (aos ' + s.idadeFinal + ' anos) você teria';
-      el.heroValor.textContent = L.brl(r.final);
-      el.heroSub.textContent = '≈ ' + L.brl(r.finalReal) + ' em dinheiro de hoje, com inflação de ' + fmtNum(s.inflacao) + '% ao ano';
+      var comImposto = s.impostoGanho > 0;
+
+      // o valor grande é o LÍQUIDO (igual ao bruto quando não há imposto)
+      el.heroRotulo.textContent = 'Em ' + anosTxt(n) + ' (aos ' + s.idadeFinal + ' anos) você teria' + (comImposto ? ', depois do imposto' : '');
+      el.heroValor.textContent = L.brl(r.liquido);
+      el.heroSub.textContent = '≈ ' + L.brl(r.liquidoReal) + ' em dinheiro de hoje, com inflação de ' + fmtNum(s.inflacao) + '% ao ano';
+      el.heroImposto.textContent = comImposto ? 'Antes do imposto: ' + L.brl(r.final) + '. Imposto de ' + fmtNum(s.impostoGanho) + '% sobre o ganho: ' + L.brl(r.imposto) + '.' : '';
+      el.heroImposto.hidden = !comImposto;
       el.heroUltimo.textContent = s.reajuste !== 0 ? 'O aporte mensal chega a ' + L.brl(r.ultimoAporte) + ' no último ano.' : '';
       el.heroUltimo.hidden = s.reajuste === 0;
 
       el.kAportado.v.textContent = L.brl(r.aportado);
       el.kAportado.d.textContent = s.inicial > 0 ? L.brl(s.inicial) + ' já guardados + aportes' : r.meses + ' aportes';
       el.kJuros.v.textContent = L.brl(r.juros);
-      el.kJuros.d.textContent = 'tirando o que você aportou';
-      var parte = r.final > 0 ? r.juros / r.final * 100 : 0;
-      el.kParte.v.textContent = L.fmtPct(parte) + '%';
-      el.kParte.d.textContent = 'do valor final vem de juros';
+      el.kJuros.d.textContent = comImposto ? 'antes do imposto' : 'tirando o que você aportou';
+      if (comImposto) {
+        el.kParte.r.textContent = 'Imposto sobre o ganho';
+        el.kParte.v.textContent = L.brl(r.imposto);
+        el.kParte.d.textContent = fmtNum(s.impostoGanho) + '% dos juros';
+      } else {
+        var parte = r.final > 0 ? r.juros / r.final * 100 : 0;
+        el.kParte.r.textContent = 'Juros no total';
+        el.kParte.v.textContent = L.fmtPct(parte) + '%';
+        el.kParte.d.textContent = 'do valor final vem de juros';
+      }
 
       graf.atualizar({ cores: [L.CORES[0], L.CORES[1]], linhas: r.anos.slice(1) });
+      el.notaGrafico.textContent = comImposto ? 'O gráfico e a tabela ano a ano mostram os valores antes do imposto.' : '';
+      el.resumoTabela.textContent = comImposto ? 'Tabela ano a ano (antes do imposto)' : 'Tabela ano a ano';
 
       // meta
       el.meta.textContent = '';
@@ -251,11 +270,12 @@
         var nec = L.aporteNecessario(s, s.meta);
         var real = s.meta / Math.pow(1 + s.inflacao / 100, n);
         var caixa = h('div', { class: 'info' });
+        var depois = comImposto ? ', depois do imposto' : '';
         if (nec && nec.jaAtinge) {
-          caixa.appendChild(h('p', null, ['O valor que você já tem guardado, com juros, já chega a ' + L.brl(s.meta) + ' sem novos aportes.']));
+          caixa.appendChild(h('p', null, ['O valor que você já tem guardado, com juros, já chega a ' + L.brl(s.meta) + depois + ' sem novos aportes.']));
         } else if (nec) {
-          caixa.appendChild(h('p', null, [h('strong', null, ['Para chegar a ' + L.brl(s.meta)]), ' (≈ ' + L.brl(real) + ' em dinheiro de hoje), o aporte mensal precisa ser de ', h('strong', null, [L.brl(nec.aporte)]), s.reajuste !== 0 ? ' no primeiro ano, com reajuste de ' + fmtNum(s.reajuste) + '% ao ano.' : '.']));
-          var dif = r.final - s.meta;
+          caixa.appendChild(h('p', null, [h('strong', null, ['Para chegar a ' + L.brl(s.meta) + depois]), ' (≈ ' + L.brl(real) + ' em dinheiro de hoje), o aporte mensal precisa ser de ', h('strong', null, [L.brl(nec.aporte)]), s.reajuste !== 0 ? ' no primeiro ano, com reajuste de ' + fmtNum(s.reajuste) + '% ao ano.' : '.']));
+          var dif = r.liquido - s.meta;
           caixa.appendChild(h('p', null, [dif >= 0 ? 'Com o seu aporte atual você passa da meta em ' + L.brl(dif) + '.' : 'Com o seu aporte atual faltam ' + L.brl(-dif) + ' para a meta.']));
         }
         el.meta.appendChild(caixa);
@@ -269,8 +289,10 @@
         var taxa = s.taxa + d;
         if (taxa < -50) return;
         var rr = L.projetar(Object.assign({}, s, { taxa: taxa }));
-        el.cenarios.appendChild(linhaTabela([fmtNum(taxa) + '% ao ano' + (d === 0 ? ' (a sua)' : ''), L.brl(rr.final), L.brl(rr.juros), L.brl(rr.finalReal)], d === 0));
+        // com imposto, a tabela mostra o valor líquido e os juros que sobram depois dele
+        el.cenarios.appendChild(linhaTabela([fmtNum(taxa) + '% ao ano' + (d === 0 ? ' (a sua)' : ''), L.brl(rr.liquido), L.brl(rr.liquido - rr.aportado), L.brl(rr.liquidoReal)], d === 0));
       });
+      el.thFinal.textContent = comImposto ? 'Valor final (líquido)' : 'Valor final';
 
       // tabela ano a ano
       el.anoAAno.textContent = '';
@@ -282,8 +304,8 @@
     // Frase "Com o plano atual você chega a X: passa/falta Y. Para chegar lá, aporte Z por mês."
     function paragrafoDoPatrimonio(s, r, titulo, necessario) {
       var p = h('p', null, [h('strong', null, [titulo + ': ']), 'precisa de ' + L.brl(necessario) + ' aos ' + s.idadeFinal + ' anos. ']);
-      var dif = r.final - necessario;
-      p.append(dif >= 0 ? 'O seu plano chega a ' + L.brl(r.final) + ', ou seja, passa em ' + L.brl(dif) + '.' : 'O seu plano chega a ' + L.brl(r.final) + ' e faltam ' + L.brl(-dif) + '.');
+      var dif = r.liquido - necessario;
+      p.append(dif >= 0 ? 'O seu plano chega a ' + L.brl(r.liquido) + ', ou seja, passa em ' + L.brl(dif) + '.' : 'O seu plano chega a ' + L.brl(r.liquido) + ' e faltam ' + L.brl(-dif) + '.');
       if (dif < 0) {
         var nec = L.aporteNecessario(s, necessario);
         if (nec && !nec.jaAtinge) p.append(' Para chegar lá, o aporte mensal precisa ser de ' + L.brl(nec.aporte) + (s.reajuste !== 0 ? ' no primeiro ano.' : '.'));
@@ -292,7 +314,7 @@
     }
 
     function calcularRenda(s, r) {
-      var rp = L.rendaPassiva(r.final, s);
+      var rp = L.rendaPassiva(r.liquido, s); // a renda sai do patrimônio já descontado o imposto
       var fimConsumo = s.idadeFinal + s.anosRenda;
 
       el.rendaTitulo.textContent = 'Renda passiva possível aos ' + s.idadeFinal + ' anos';
@@ -305,14 +327,14 @@
       el.rendaNota.textContent = (s.reajustaRenda
         ? 'A retirada sobe todo mês com a inflação e mantém o poder de compra; por isso o primeiro valor é menor que o de uma retirada fixa. '
         : 'A retirada é fixa: o valor em reais não muda, mas o poder de compra cai com a inflação. ')
-        + 'Primeiro mês da aposentadoria, sem imposto de renda nem taxas.';
+        + 'Primeiro mês da aposentadoria' + (s.impostoGanho > 0 ? ', com o imposto sobre o ganho já descontado do patrimônio.' : ', sem imposto nem taxas.');
 
       // comparação de prazos
       el.rendaPrazos.textContent = '';
       var prazos = [15, 20, 25, 30, 35];
       if (prazos.indexOf(s.anosRenda) < 0) { prazos.push(s.anosRenda); prazos.sort(function (a, b) { return a - b; }); }
       prazos.forEach(function (anos) {
-        var rr = L.rendaPorPrazo(r.final, s, anos);
+        var rr = L.rendaPorPrazo(r.liquido, s, anos);
         el.rendaPrazos.appendChild(linhaTabela([anosTxt(anos) + ' (até os ' + (s.idadeFinal + anos) + ')' + (anos === s.anosRenda ? ' · o seu' : ''), L.brl(rr.mensal), L.brl(rr.hoje)], anos === s.anosRenda));
       });
       el.rendaPrazos.appendChild(linhaTabela(['Só os rendimentos (sem fim)', L.brl(rp.soJuros), L.brl(rp.soJurosHoje)], false));

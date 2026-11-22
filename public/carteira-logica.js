@@ -340,10 +340,11 @@
   // momento ('fim' ou 'inicio' do mês) e meta (R$ ou null).
   // Depois de parar de aportar: taxaRenda (% ao ano), anosRenda (por quanto tempo retirar), reajustaRenda
   // (a retirada acompanha a inflação?) e rendaDesejada (R$/mês em dinheiro de hoje, ou null).
+  // impostoGanho: % de imposto sobre o ganho (valor final menos o aportado), descontado no fim; 0 = sem imposto.
   function simuladorPadrao() {
     return {
       idadeAtual: 35, idadeFinal: 65, inicial: 0, aporte: 500, reajuste: 0, taxa: 8, inflacao: 4, momento: 'fim', meta: null,
-      taxaRenda: 6, anosRenda: 25, reajustaRenda: true, rendaDesejada: null
+      taxaRenda: 6, anosRenda: 25, reajustaRenda: true, rendaDesejada: null, impostoGanho: 0
     };
   }
 
@@ -369,7 +370,8 @@
       taxaRenda: numeroEntre(bruto.taxaRenda, -50, 200, p.taxaRenda),
       anosRenda: Math.round(numeroEntre(bruto.anosRenda, 1, 70, p.anosRenda)),
       reajustaRenda: bruto.reajustaRenda === undefined ? p.reajustaRenda : bruto.reajustaRenda === true,
-      rendaDesejada: (bruto.rendaDesejada === null || bruto.rendaDesejada === undefined || bruto.rendaDesejada === '') ? null : numeroEntre(bruto.rendaDesejada, 0, 1e9, null)
+      rendaDesejada: (bruto.rendaDesejada === null || bruto.rendaDesejada === undefined || bruto.rendaDesejada === '') ? null : numeroEntre(bruto.rendaDesejada, 0, 1e9, null),
+      impostoGanho: numeroEntre(bruto.impostoGanho, 0, 50, p.impostoGanho)
     };
     if (s.idadeFinal <= s.idadeAtual) s.idadeFinal = Math.min(120, s.idadeAtual + 1);
     if (s.idadeFinal <= s.idadeAtual) s.idadeAtual = s.idadeFinal - 1;
@@ -399,20 +401,26 @@
       }
     }
     var ultimo = anos[anos.length - 1];
+    // imposto sobre o ganho (valor final − o que foi aportado), só quando há ganho; descontado de uma vez no fim
+    var ganho = Math.max(0, ultimo.saldo - ultimo.aportado);
+    var imposto = ganho * s.impostoGanho / 100;
+    var liquido = ultimo.saldo - imposto;
     return {
       meses: meses, anos: anos, final: ultimo.saldo, aportado: ultimo.aportado, juros: ultimo.juros,
-      finalReal: ultimo.real, ultimoAporte: aporte, taxaMensal: i
+      finalReal: ultimo.real, ultimoAporte: aporte, taxaMensal: i,
+      imposto: imposto, liquido: liquido, liquidoReal: liquido / Math.pow(defl, meses / 12)
     };
   }
 
   // Quanto aportar por mês (o 1º aporte; os seguintes seguem o reajuste) para chegar a uma meta.
-  // O resultado final é linear no aporte, então dá para resolver sem tentativa e erro.
+  // A meta é o valor LÍQUIDO (depois do imposto sobre o ganho, se houver). O valor líquido é linear no aporte,
+  // então dá para resolver sem tentativa e erro.
   function aporteNecessario(s, meta) {
     s = validarSimulador(s);
     meta = Number(meta);
     if (!isFinite(meta) || meta < 0) return null;
-    var base = projetar(Object.assign({}, s, { aporte: 0 })).final;
-    var porReal = projetar(Object.assign({}, s, { aporte: 1 })).final - base;
+    var base = projetar(Object.assign({}, s, { aporte: 0 })).liquido;
+    var porReal = projetar(Object.assign({}, s, { aporte: 1 })).liquido - base;
     if (!(porReal > 0)) return null;
     return { aporte: Math.max(0, (meta - base) / porReal), jaAtinge: meta <= base };
   }

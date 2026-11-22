@@ -297,6 +297,53 @@ test('simulador: aporte necessário para uma meta (e a volta dá a mesma meta)',
   assert.equal(L.aporteNecessario(sim(), 'abc'), null);
 });
 
+// ---------- imposto sobre o ganho ----------
+test('imposto sobre o ganho: 15% dos juros (valor final menos o aportado)', () => {
+  const r = L.projetar(sim({ impostoGanho: 15 }));
+  perto(r.final, 359130.4, 1);
+  perto(r.imposto, (r.final - 120000) * 0.15, 1e-6);
+  perto(r.liquido, r.final - r.imposto, 1e-6);
+  perto(r.imposto, 35869.5, 1);  // ≈ R$ 35,9 mil
+  perto(r.liquido, 323261, 1);   // ≈ R$ 323,3 mil
+  perto(r.liquidoReal, r.liquido / Math.pow(1.04, 20), 1e-6);
+});
+
+test('imposto sobre o ganho: sem imposto o líquido é igual ao bruto, e sem ganho não há imposto', () => {
+  const s = L.projetar(sim());
+  assert.equal(s.imposto, 0);
+  perto(s.liquido, s.final);
+  const sem = L.projetar(sim({ taxa: 0, impostoGanho: 15 }));
+  assert.equal(sem.imposto, 0); // só devolveu o que foi aportado
+  const perda = L.projetar(sim({ taxa: -5, impostoGanho: 15 }));
+  assert.equal(perda.imposto, 0); // prejuízo não paga imposto
+  assert.ok(perda.liquido < perda.aportado);
+});
+
+test('imposto sobre o ganho: o valor inicial já guardado também entra na conta do ganho', () => {
+  const r = L.projetar(sim({ inicial: 10000, aporte: 0, impostoGanho: 15, idadeFinal: 46 }));
+  perto(r.final, 11000, 1e-6);
+  perto(r.imposto, 150, 1e-6); // ganho 1.000 × 15%
+});
+
+test('imposto sobre o ganho: aporte necessário para uma meta LÍQUIDA (ida e volta)', () => {
+  const s = sim({ impostoGanho: 15 });
+  const n = L.aporteNecessario(s, 500000);
+  perto(L.projetar(Object.assign({}, s, { aporte: n.aporte })).liquido, 500000, 1e-3);
+  assert.ok(n.aporte > L.aporteNecessario(sim(), 500000).aporte, 'com imposto precisa aportar mais');
+  // com valor inicial e reajuste também fecha
+  const s2 = sim({ impostoGanho: 15, inicial: 30000, reajuste: 4 });
+  const n2 = L.aporteNecessario(s2, 900000);
+  perto(L.projetar(Object.assign({}, s2, { aporte: n2.aporte })).liquido, 900000, 1e-3);
+});
+
+test('imposto sobre o ganho: campo novo é validado e planos antigos ficam sem imposto', () => {
+  assert.equal(L.validarSimulador({ idadeAtual: 45, idadeFinal: 65 }).impostoGanho, 0);
+  assert.equal(L.validarSimulador({ impostoGanho: 15 }).impostoGanho, 15);
+  assert.equal(L.validarSimulador({ impostoGanho: 999 }).impostoGanho, 50);
+  assert.equal(L.validarSimulador({ impostoGanho: -3 }).impostoGanho, 0);
+  assert.equal(L.validarSimulador({ impostoGanho: 'x' }).impostoGanho, 0);
+});
+
 // ---------- renda passiva ----------
 const renda = (extra = {}) => sim({ taxaRenda: 6, anosRenda: 25, reajustaRenda: false, inflacao: 4, ...extra });
 // simula os meses da aposentadoria e devolve o saldo no fim (retirada no fim do mês)
