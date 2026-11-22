@@ -296,7 +296,7 @@
 
         var del = h('button', { type: 'button', class: 'icone-btn perigo', 'aria-label': 'Excluir o ativo ' + a.nome, title: 'Excluir ativo', disabled: c.itens.length <= 1 }, [icone('x')]);
         del.addEventListener('click', function () {
-          aplicar(L.removerAtivo(estado, c.id, a.id), { estrutura: true, aviso: 'Ativo “' + a.nome + '” excluído.' });
+          aplicar(L.removerAtivo(estado, c.id, a.id), { estrutura: true, aviso: 'Ativo “' + a.nome + '” excluído; o valor ficou com os outros ativos da classe.' });
         });
 
         tr.appendChild(h('td', null, [h('div', { class: 'cel-nome' }, [ponto, nomeA])]));
@@ -315,7 +315,14 @@
         var ultimo = refs.ativos[itens[itens.length - 1].id];
         if (ultimo) { ultimo.nome.focus(); ultimo.nome.select(); }
       });
-      corpo.appendChild(h('tr', { class: 'novo' }, [h('td', { colspan: '4' }, [add])]));
+      var ratear = h('button', {
+        type: 'button', class: 'btn-add', disabled: c.itens.length < 2,
+        title: 'Reparte o valor da classe por igual entre os ativos (a classe mantém o percentual)'
+      }, ['Dividir igualmente']);
+      ratear.addEventListener('click', function () {
+        aplicar(L.ratearClasse(estado, c.id), { aviso: 'Valor de “' + L.achar(estado, c.id).nome + '” dividido igualmente entre os ativos.' });
+      });
+      corpo.appendChild(h('tr', { class: 'novo' }, [h('td', { colspan: '4' }, [add, ratear])]));
     });
 
     $('btnNovaClasse').disabled = !L.podeAdicionarClasse(estado);

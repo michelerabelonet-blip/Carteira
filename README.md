@@ -16,7 +16,7 @@ comprar/vender para chegar nelas e como dividir um novo aporte. Quem cria conta 
 | | |
 |---|---|
 | Classes | criar, renomear, excluir, escolher a cor (8 cores validadas, uma por classe), **travar** o percentual |
-| Ativos | criar, renomear, excluir, valor em R$, % da carteira e % da classe |
+| Ativos | criar, renomear, excluir, valor em R$, % da carteira e % da classe. **Ao adicionar um ativo, o valor da classe é rateado por igual entre todos** (a classe mantém o percentual); ao excluir, o valor fica com os que sobram; **Dividir igualmente** refaz o rateio a qualquer momento |
 | Percentual da classe | a classe vira X% do total e as outras se reajustam na proporção (as travadas não mexem) |
 | Total | editar o total escala tudo, mantendo os percentuais |
 | Gráfico | rosca de dois anéis (classes por dentro, ativos por fora) ou barras (por classe ou por ativo), com dica ao passar o mouse |

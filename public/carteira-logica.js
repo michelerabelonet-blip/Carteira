@@ -164,15 +164,39 @@
     return r;
   }
 
+  // Divide o valor atual da classe por igual entre os seus ativos (o valor da classe não muda).
+  function ratearIgual(c, valorDaClasse) {
+    if (!c.itens.length) return;
+    var cada = valorDaClasse / c.itens.length;
+    for (var i = 0; i < c.itens.length; i++) c.itens[i].valor = cada;
+  }
+
+  // O percentual da classe é o que manda: ao entrar um ativo novo, o valor da classe é rateado por igual entre todos.
   function adicionarAtivo(e, classeId, nome) {
     var r = clonar(e), c = achar(r, classeId);
-    if (c && podeAdicionarAtivo(c)) c.itens.push({ id: novoId(), nome: texto(nome, 'Novo ativo'), valor: 0 });
+    if (c && podeAdicionarAtivo(c)) {
+      var soma = somaClasse(c);
+      c.itens.push({ id: novoId(), nome: texto(nome, 'Novo ativo'), valor: 0 });
+      ratearIgual(c, soma);
+    }
     return r;
   }
 
+  // Ao sair um ativo, o valor dele passa para os que ficam (na proporção atual) e a classe mantém o percentual.
   function removerAtivo(e, classeId, ativoId) {
     var r = clonar(e), c = achar(r, classeId);
-    if (c && c.itens.length > 1) c.itens = c.itens.filter(function (i) { return i.id !== ativoId; });
+    if (c && c.itens.length > 1) {
+      var soma = somaClasse(c);
+      c.itens = c.itens.filter(function (i) { return i.id !== ativoId; });
+      definirValorClasse(c, soma);
+    }
+    return r;
+  }
+
+  // Botão "Dividir igualmente": reparte o valor da classe por igual, a qualquer momento.
+  function ratearClasse(e, classeId) {
+    var r = clonar(e), c = achar(r, classeId);
+    if (c) ratearIgual(c, somaClasse(c));
     return r;
   }
 
@@ -419,7 +443,7 @@
     podeAdicionarClasse: podeAdicionarClasse, podeAdicionarAtivo: podeAdicionarAtivo,
     adicionarClasse: adicionarClasse, removerClasse: removerClasse, renomearClasse: renomearClasse,
     alternarTravada: alternarTravada, trocarCor: trocarCor,
-    adicionarAtivo: adicionarAtivo, removerAtivo: removerAtivo, renomearAtivo: renomearAtivo, definirValorAtivo: definirValorAtivo,
+    adicionarAtivo: adicionarAtivo, removerAtivo: removerAtivo, ratearClasse: ratearClasse, renomearAtivo: renomearAtivo, definirValorAtivo: definirValorAtivo,
     definirPercentualClasse: definirPercentualClasse, definirTotal: definirTotal,
     definirMeta: definirMeta, somaMetas: somaMetas, metasValidas: metasValidas, metasDoAtual: metasDoAtual, limparMetas: limparMetas,
     planoAjuste: planoAjuste, aplicarMetas: aplicarMetas, planoAporte: planoAporte, aplicarAporte: aplicarAporte,

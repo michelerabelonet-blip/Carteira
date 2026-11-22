@@ -156,6 +156,83 @@ test('ativos: limite por classe e nomes', () => {
   assert.equal(L.achar(e, id).nome.length, L.MAX_NOME);
 });
 
+test('adicionar ativo: o valor da classe é rateado por igual e o total não muda', () => {
+  const e = L.exemplo(); // Exterior: GPUS11 1.000 + VWRA11 1.000
+  const id = classe(e, 'Exterior').id;
+  const r = L.adicionarAtivo(e, id, 'Novo');
+  const c = classe(r, 'Exterior');
+  assert.equal(c.itens.length, 3);
+  c.itens.forEach((a) => perto(a.valor, 2000 / 3));
+  perto(L.somaClasse(c), 2000);
+  perto(L.total(r), 10000);
+  ['Renda Fixa', 'Ações', 'FIIs'].forEach((n) => perto(L.somaClasse(classe(r, n)), L.somaClasse(classe(e, n))));
+});
+
+test('adicionar ativos em sequência continua ratando por igual (um ativo com R$ 1.526 vira 4 de 381,50)', () => {
+  let e = { v: 1, classes: [
+    { id: 'a', nome: 'Ações', cor: 0, meta: null, travada: false, itens: [{ id: 'a1', nome: 'ITSA4', valor: 1526 }] },
+    { id: 'b', nome: 'FIIs', cor: 1, meta: null, travada: false, itens: [{ id: 'b1', nome: 'HGBS11', valor: 4293 }] }
+  ] };
+  for (let i = 0; i < 3; i++) e = L.adicionarAtivo(e, 'a', 'X' + i);
+  const a = classe(e, 'Ações');
+  assert.equal(a.itens.length, 4);
+  a.itens.forEach((x) => perto(x.valor, 381.5));
+  perto(L.somaClasse(a), 1526);
+  perto(L.total(e), 5819);
+});
+
+test('adicionar ativo em classe zerada continua zerada (nada a ratear)', () => {
+  const e = L.adicionarClasse(L.exemplo(), 'Nova');
+  const id = e.classes[4].id;
+  const r = L.adicionarAtivo(e, id, 'Outro');
+  assert.equal(classe(r, 'Nova').itens.length, 2);
+  perto(L.somaClasse(classe(r, 'Nova')), 0);
+  perto(L.total(r), 10000);
+});
+
+test('remover ativo: a classe mantém o valor e os que ficam seguem na proporção', () => {
+  let e = L.exemplo();
+  const rf = classe(e, 'Renda Fixa');
+  e = L.definirValorAtivo(e, rf.id, rf.itens[0].id, 3000); // 3.000 + 2.500 = 5.500
+  const antes = L.total(e);
+  const sem = L.removerAtivo(e, rf.id, rf.itens[1].id);
+  assert.equal(classe(sem, 'Renda Fixa').itens.length, 1);
+  perto(L.somaClasse(classe(sem, 'Renda Fixa')), 5500);
+  perto(L.total(sem), antes);
+  // com 3 ativos 3000 / 2500 / 500: tirar o último reparte na proporção 3000:2500
+  const com3 = L.adicionarAtivo(e, rf.id, 'T');
+  const base = classe(com3, 'Renda Fixa');
+  let c3 = L.definirValorAtivo(com3, rf.id, base.itens[2].id, 500);
+  c3 = L.definirValorAtivo(c3, rf.id, base.itens[0].id, 3000);
+  c3 = L.definirValorAtivo(c3, rf.id, base.itens[1].id, 2500);
+  const t = L.total(c3);
+  const r = L.removerAtivo(c3, rf.id, base.itens[2].id);
+  const [x, y] = classe(r, 'Renda Fixa').itens;
+  perto(x.valor / y.valor, 3000 / 2500);
+  perto(L.total(r), t);
+});
+
+test('remover ativo quando os que ficam estão zerados: divide por igual', () => {
+  const e = { v: 1, classes: [{ id: 'a', nome: 'A', cor: 0, meta: null, travada: false, itens: [
+    { id: 'a1', nome: 'x', valor: 0 }, { id: 'a2', nome: 'y', valor: 0 }, { id: 'a3', nome: 'z', valor: 900 }] }] };
+  const r = L.removerAtivo(e, 'a', 'a3');
+  assert.equal(r.classes[0].itens.length, 2);
+  r.classes[0].itens.forEach((a) => perto(a.valor, 450));
+});
+
+test('ratearClasse: divide por igual sem mudar o valor da classe nem o total', () => {
+  const e = { v: 1, classes: [
+    { id: 'a', nome: 'Ações', cor: 0, meta: null, travada: false, itens: [
+      { id: 'a1', nome: 'ITSA4', valor: 1526 }, { id: 'a2', nome: 'CMIG4', valor: 0 }, { id: 'a3', nome: 'TAEE11', valor: 0 }, { id: 'a4', nome: 'CXSE3', valor: 0 }] },
+    { id: 'b', nome: 'FIIs', cor: 1, meta: null, travada: false, itens: [{ id: 'b1', nome: 'x', valor: 100 }] }
+  ] };
+  const r = L.ratearClasse(e, 'a');
+  r.classes[0].itens.forEach((a) => perto(a.valor, 381.5));
+  perto(L.total(r), L.total(e));
+  perto(r.classes[1].itens[0].valor, 100);
+  assert.deepEqual(L.ratearClasse(e, 'nao-existe'), e);
+});
+
 test('metas do atual: 1 casa decimal e soma exatamente 100', () => {
   const e = L.metasDoAtual(L.definirTotal({ v: 1, classes: [
     { id: 'a', nome: 'A', cor: 0, meta: null, travada: false, itens: [{ id: 'a1', nome: 'x', valor: 1 }] },
