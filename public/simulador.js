@@ -36,8 +36,15 @@
     { k: 'aporte', rotulo: 'Aporte por mês', tipo: 'dinheiro' },
     { k: 'reajuste', rotulo: 'Reajuste do aporte por ano', tipo: 'pct', ajuda: 'Quanto você aumenta o aporte a cada ano. 0 = sempre o mesmo valor.' },
     { k: 'taxa', rotulo: 'Rentabilidade por ano', tipo: 'pct', ajuda: 'Taxa efetiva ao ano. Use a taxa já descontada de impostos e taxas para ver o valor líquido.' },
-    { k: 'inflacao', rotulo: 'Inflação por ano', tipo: 'pct', ajuda: 'Só serve para mostrar o valor em dinheiro de hoje.' }
+    { k: 'inflacao', rotulo: 'Inflação por ano', tipo: 'pct', ajuda: 'Mostra o valor em dinheiro de hoje e corrige a retirada, se você escolher isso.' }
   ];
+
+  // depois de parar de aportar
+  var CAMPOS_RENDA = [
+    { k: 'taxaRenda', rotulo: 'Rentabilidade na aposentadoria', tipo: 'pct', ajuda: 'Costuma ser menor que na fase de aportes, porque o dinheiro fica mais seguro.' },
+    { k: 'anosRenda', rotulo: 'Retirar durante', tipo: 'idade', ajuda: 'Por quantos anos o patrimônio vai pagar a renda.' }
+  ];
+  var TODOS = CAMPOS.concat(CAMPOS_RENDA);
 
   function criar(op) {
     var raiz = op.raiz;
@@ -52,9 +59,29 @@
     function valorDoCampo(c) { return c.tipo === 'dinheiro' ? fmtMoeda(sim[c.k]) : (c.tipo === 'idade' ? String(sim[c.k]) : fmtNum(sim[c.k])); }
 
     function preencher() {
-      CAMPOS.forEach(function (c) { if (document.activeElement !== campos[c.k]) campos[c.k].value = valorDoCampo(c); });
+      TODOS.forEach(function (c) { if (document.activeElement !== campos[c.k]) campos[c.k].value = valorDoCampo(c); });
       if (document.activeElement !== campos.meta) campos.meta.value = sim.meta === null ? '' : fmtMoeda(sim.meta);
+      if (document.activeElement !== campos.rendaDesejada) campos.rendaDesejada.value = sim.rendaDesejada === null ? '' : fmtMoeda(sim.rendaDesejada);
       el.momento.value = sim.momento;
+      el.reajustaRenda.value = sim.reajustaRenda ? 'sim' : 'nao';
+    }
+
+    // campo de dinheiro opcional (vazio = sem valor)
+    function campoOpcional(k, id, rotulo, ajuda, placeholder) {
+      var inp = h('input', { id: id, type: 'text', class: 'campo', inputmode: 'decimal', autocomplete: 'off', placeholder: placeholder || 'opcional' });
+      campos[k] = inp;
+      inp.addEventListener('focus', function () { inp.select(); });
+      inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') inp.blur(); });
+      inp.addEventListener('input', function () {
+        if (inp.value.trim() === '') sim[k] = null;
+        else { var n = L.parseNumero(inp.value); if (isNaN(n)) return; sim[k] = n; }
+        sim = L.validarSimulador(sim);
+        calcular(); gravar();
+      });
+      inp.addEventListener('change', function () { preencher(); });
+      return h('div', { class: 'sim-campo sim-largo' }, [
+        h('label', { for: id }, [rotulo]), h('span', { class: 'campo-moeda' }, [inp]), ajuda ? h('p', { class: 'ajuda' }, [ajuda]) : null
+      ]);
     }
 
     function campo(c) {
@@ -100,23 +127,21 @@
       });
       form.appendChild(h('div', { class: 'sim-campo sim-largo' }, [el.usarTotal]));
 
-      // meta (opcional)
-      var meta = h('input', { id: 'sim-meta', type: 'text', class: 'campo', inputmode: 'decimal', autocomplete: 'off', placeholder: 'opcional' });
-      campos.meta = meta;
-      meta.addEventListener('focus', function () { meta.select(); });
-      meta.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') meta.blur(); });
-      meta.addEventListener('input', function () {
-        if (meta.value.trim() === '') sim.meta = null;
-        else { var n = L.parseNumero(meta.value); if (isNaN(n)) return; sim.meta = n; }
-        sim = L.validarSimulador(sim);
-        calcular(); gravar();
-      });
-      meta.addEventListener('change', function () { preencher(); });
+      // meta de patrimônio (opcional)
+      form.appendChild(campoOpcional('meta', 'sim-meta', 'Meta de valor final (opcional)', 'Informe quanto você quer ter e veja quanto precisa aportar por mês.'));
+
+      // depois de parar de aportar: renda passiva
+      form.appendChild(h('h3', { class: 'sim-subtitulo sim-largo' }, ['Depois de parar de aportar']));
+      CAMPOS_RENDA.forEach(function (c) { form.appendChild(campo(c)); });
+      el.reajustaRenda = h('select', { id: 'sim-reajustaRenda', class: 'campo' }, [
+        h('option', { value: 'sim' }, ['Sim, acompanha a inflação']), h('option', { value: 'nao' }, ['Não, valor fixo'])
+      ]);
+      el.reajustaRenda.addEventListener('change', function () { sim.reajustaRenda = el.reajustaRenda.value === 'sim'; sim = L.validarSimulador(sim); calcular(); gravar(); });
       form.appendChild(h('div', { class: 'sim-campo sim-largo' }, [
-        h('label', { for: 'sim-meta' }, ['Meta de valor final (opcional)']),
-        h('span', { class: 'campo-moeda' }, [meta]),
-        h('p', { class: 'ajuda' }, ['Informe quanto você quer ter e veja quanto precisa aportar por mês.'])
+        h('label', { for: 'sim-reajustaRenda' }, ['A retirada acompanha a inflação?']), el.reajustaRenda,
+        h('p', { class: 'ajuda' }, ['Sim mantém o poder de compra ao longo dos anos, mas começa menor.'])
       ]));
+      form.appendChild(campoOpcional('rendaDesejada', 'sim-rendaDesejada', 'Renda mensal que você quer (opcional)', 'Em dinheiro de hoje. Veja o patrimônio e o aporte necessários para isso.'));
 
       // ----- resultados -----
       el.heroRotulo = h('p', { class: 'hero-rotulo' });
@@ -139,11 +164,24 @@
 
       el.meta = h('div', { class: 'sim-meta', 'aria-live': 'polite' });
 
+      // ----- renda passiva possível -----
+      el.rendaTitulo = h('h3', { class: 'sim-titulo' });
+      var kRenda = h('div', { class: 'kpis kpis-2' }, [tile('kSoJuros', 'Só com os rendimentos'), tile('kConsumo', 'Consumindo o patrimônio')]);
+      el.rendaNota = h('p', { class: 'ajuda sim-nota' });
+      el.rendaMeta = h('div', { class: 'sim-meta', 'aria-live': 'polite' });
+      el.rendaPrazos = h('tbody');
+      var tabelaPrazos = h('div', { class: 'rolavel' }, [h('table', { class: 'tab-metas sim-tab' }, [
+        h('caption', { class: 'so-leitor' }, ['Renda mensal conforme o tempo de retirada']),
+        h('thead', null, [h('tr', null, [h('th', { scope: 'col' }, ['Retirar por']), h('th', { scope: 'col' }, ['Renda por mês']), h('th', { scope: 'col' }, ['Em dinheiro de hoje'])])]),
+        el.rendaPrazos
+      ])]);
+
       var resultado = h('div', { class: 'sim-resultado' }, [
         h('div', { class: 'hero' }, [el.heroRotulo, el.heroValor, el.heroSub, el.heroUltimo]),
         kpis,
         h('h3', { class: 'sim-titulo' }, ['Como o valor cresce']),
-        grafico, legenda, el.meta
+        grafico, legenda, el.meta,
+        el.rendaTitulo, kRenda, el.rendaNota, tabelaPrazos, el.rendaMeta
       ]);
 
       // ----- cenários e tabela ano a ano -----
@@ -172,7 +210,7 @@
       raiz.appendChild(h('div', { class: 'sim-grade' }, [form, resultado]));
       raiz.appendChild(cenarios);
       raiz.appendChild(tabela);
-      raiz.appendChild(h('p', { class: 'rodape' }, ['Não considera imposto de renda, taxas de administração nem variações do mercado. Os aportes são sempre iguais (ou reajustados pelo percentual informado) e a rentabilidade é constante.']));
+      raiz.appendChild(h('p', { class: 'rodape' }, ['Não considera imposto de renda, taxas de administração nem variações do mercado. Os aportes são sempre iguais (ou reajustados pelo percentual informado) e a rentabilidade é constante. A renda passiva é uma conta com as taxas que você informa: não é promessa de rendimento nem recomendação de investimento.']));
       montado = true;
     }
 
@@ -223,6 +261,8 @@
         el.meta.appendChild(caixa);
       }
 
+      calcularRenda(s, r);
+
       // cenários: a sua taxa e quatro vizinhas
       el.cenarios.textContent = '';
       [-4, -2, 0, 2, 4].forEach(function (d) {
@@ -237,6 +277,57 @@
       r.anos.forEach(function (a) {
         el.anoAAno.appendChild(linhaTabela([String(a.idade), L.brl(a.aportado), L.brl(a.juros), L.brl(a.saldo), L.brl(a.real)]));
       });
+    }
+
+    // Frase "Com o plano atual você chega a X: passa/falta Y. Para chegar lá, aporte Z por mês."
+    function paragrafoDoPatrimonio(s, r, titulo, necessario) {
+      var p = h('p', null, [h('strong', null, [titulo + ': ']), 'precisa de ' + L.brl(necessario) + ' aos ' + s.idadeFinal + ' anos. ']);
+      var dif = r.final - necessario;
+      p.append(dif >= 0 ? 'O seu plano chega a ' + L.brl(r.final) + ', ou seja, passa em ' + L.brl(dif) + '.' : 'O seu plano chega a ' + L.brl(r.final) + ' e faltam ' + L.brl(-dif) + '.');
+      if (dif < 0) {
+        var nec = L.aporteNecessario(s, necessario);
+        if (nec && !nec.jaAtinge) p.append(' Para chegar lá, o aporte mensal precisa ser de ' + L.brl(nec.aporte) + (s.reajuste !== 0 ? ' no primeiro ano.' : '.'));
+      }
+      return p;
+    }
+
+    function calcularRenda(s, r) {
+      var rp = L.rendaPassiva(r.final, s);
+      var fimConsumo = s.idadeFinal + s.anosRenda;
+
+      el.rendaTitulo.textContent = 'Renda passiva possível aos ' + s.idadeFinal + ' anos';
+      el.kSoJuros.v.textContent = L.brl(rp.soJuros) + ' por mês';
+      el.kSoJuros.d.textContent = rp.jurosAbaixoDaInflacao
+        ? 'O rendimento não supera a inflação: sem gastar o patrimônio, não sobra renda que mantenha o poder de compra.'
+        : '≈ ' + L.brl(rp.soJurosHoje) + ' em dinheiro de hoje, com o patrimônio intacto';
+      el.kConsumo.v.textContent = L.brl(rp.consumindo) + ' por mês';
+      el.kConsumo.d.textContent = '≈ ' + L.brl(rp.consumindoHoje) + ' em dinheiro de hoje, até os ' + fimConsumo + ' anos';
+      el.rendaNota.textContent = (s.reajustaRenda
+        ? 'A retirada sobe todo mês com a inflação e mantém o poder de compra; por isso o primeiro valor é menor que o de uma retirada fixa. '
+        : 'A retirada é fixa: o valor em reais não muda, mas o poder de compra cai com a inflação. ')
+        + 'Primeiro mês da aposentadoria, sem imposto de renda nem taxas.';
+
+      // comparação de prazos
+      el.rendaPrazos.textContent = '';
+      var prazos = [15, 20, 25, 30, 35];
+      if (prazos.indexOf(s.anosRenda) < 0) { prazos.push(s.anosRenda); prazos.sort(function (a, b) { return a - b; }); }
+      prazos.forEach(function (anos) {
+        var rr = L.rendaPorPrazo(r.final, s, anos);
+        el.rendaPrazos.appendChild(linhaTabela([anosTxt(anos) + ' (até os ' + (s.idadeFinal + anos) + ')' + (anos === s.anosRenda ? ' · o seu' : ''), L.brl(rr.mensal), L.brl(rr.hoje)], anos === s.anosRenda));
+      });
+      el.rendaPrazos.appendChild(linhaTabela(['Só os rendimentos (sem fim)', L.brl(rp.soJuros), L.brl(rp.soJurosHoje)], false));
+
+      // renda desejada: patrimônio e aporte necessários
+      el.rendaMeta.textContent = '';
+      if (s.rendaDesejada !== null && s.rendaDesejada > 0) {
+        var nec = L.patrimonioParaRenda(s.rendaDesejada, s);
+        var caixa = h('div', { class: 'info' });
+        caixa.appendChild(h('p', null, [h('strong', null, ['Para receber ' + L.brl(s.rendaDesejada) + ' por mês']), ' (em dinheiro de hoje), o primeiro mês da aposentadoria já será de ' + L.brl(nec.rendaNominal) + ' por causa da inflação.']));
+        caixa.appendChild(paragrafoDoPatrimonio(s, r, 'Consumindo o patrimônio até os ' + fimConsumo + ' anos', nec.consumindo));
+        if (nec.soJuros !== null) caixa.appendChild(paragrafoDoPatrimonio(s, r, 'Vivendo só dos rendimentos', nec.soJuros));
+        else caixa.appendChild(h('p', null, ['Vivendo só dos rendimentos: com o rendimento abaixo da inflação, não dá para manter o poder de compra sem gastar o patrimônio.']));
+        el.rendaMeta.appendChild(caixa);
+      }
     }
 
     function atualizarBotaoTotal() {

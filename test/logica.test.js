@@ -297,6 +297,100 @@ test('simulador: aporte necessário para uma meta (e a volta dá a mesma meta)',
   assert.equal(L.aporteNecessario(sim(), 'abc'), null);
 });
 
+// ---------- renda passiva ----------
+const renda = (extra = {}) => sim({ taxaRenda: 6, anosRenda: 25, reajustaRenda: false, inflacao: 4, ...extra });
+// simula os meses da aposentadoria e devolve o saldo no fim (retirada no fim do mês)
+function saldoFinalDaRetirada(saldo, s, primeira, crescer) {
+  const i = L.taxaMensal(s.taxaRenda), g = crescer ? L.taxaMensal(s.inflacao) : 0;
+  let w = primeira;
+  for (let m = 0; m < s.anosRenda * 12; m++) { saldo = saldo * (1 + i) - w; w *= 1 + g; }
+  return saldo;
+}
+
+test('renda passiva: retirada fixa que zera o patrimônio em 25 anos (anuidade)', () => {
+  const s = renda();
+  const r = L.rendaPassiva(1000000, s);
+  const i = L.taxaMensal(6);
+  perto(r.consumindo, 1000000 * i / (1 - Math.pow(1 + i, -300)), 1e-6);
+  perto(saldoFinalDaRetirada(1000000, s, r.consumindo, false), 0, 1e-3);
+  assert.equal(Math.round(r.consumindo), 6346); // ~R$ 6.346 por mês: 1.000.000 a 6% a.a. por 25 anos (conta à parte: 1,06^25 = 4,2919)
+});
+
+test('renda passiva: retirada que acompanha a inflação também zera o patrimônio, começando menor', () => {
+  const fixa = L.rendaPassiva(1000000, renda());
+  const corrigida = L.rendaPassiva(1000000, renda({ reajustaRenda: true }));
+  assert.ok(corrigida.consumindo < fixa.consumindo);
+  perto(saldoFinalDaRetirada(1000000, renda({ reajustaRenda: true }), corrigida.consumindo, true), 0, 1e-3);
+});
+
+test('renda passiva: só os juros deixa o patrimônio intacto (nominal, ou em poder de compra se corrigida)', () => {
+  const s = renda();
+  const r = L.rendaPassiva(1000000, s);
+  perto(r.soJuros, 1000000 * L.taxaMensal(6), 1e-6);
+  perto(saldoFinalDaRetirada(1000000, Object.assign({}, s, { anosRenda: 10 }), r.soJuros, false), 1000000, 1e-6);
+  // corrigida pela inflação: o capital cresce na inflação, ou seja, mantém o poder de compra
+  const sc = renda({ reajustaRenda: true, anosRenda: 10 });
+  const rc = L.rendaPassiva(1000000, sc);
+  perto(saldoFinalDaRetirada(1000000, sc, rc.soJuros, true), 1000000 * Math.pow(1 + L.taxaMensal(4), 120), 1e-3);
+  assert.ok(rc.soJuros < r.soJuros);
+});
+
+test('renda passiva: rendimento abaixo da inflação não sustenta uma retirada corrigida', () => {
+  const r = L.rendaPassiva(1000000, renda({ reajustaRenda: true, taxaRenda: 3, inflacao: 4 }));
+  assert.equal(r.soJuros, 0);
+  assert.equal(r.jurosAbaixoDaInflacao, true);
+  assert.equal(L.patrimonioParaRenda(5000, renda({ reajustaRenda: true, taxaRenda: 3, inflacao: 4 })).soJuros, null);
+  assert.ok(L.rendaPassiva(1000000, renda({ reajustaRenda: true, taxaRenda: 3, inflacao: 4 })).consumindo > 0);
+});
+
+test('renda passiva: sem juros é só dividir o patrimônio pelos meses', () => {
+  const r = L.rendaPassiva(120000, renda({ taxaRenda: 0, anosRenda: 10 }));
+  perto(r.consumindo, 1000, 1e-6);
+  const t = L.rendaPorPrazo(120000, renda({ taxaRenda: 0 }), 20);
+  perto(t.mensal, 500, 1e-6);
+});
+
+test('renda passiva: valor em dinheiro de hoje desconta a inflação até a aposentadoria', () => {
+  const s = renda({ idadeAtual: 45, idadeFinal: 65, inflacao: 4 });
+  const r = L.rendaPassiva(1000000, s);
+  perto(r.consumindoHoje, r.consumindo / Math.pow(1.04, 20), 1e-6);
+  perto(r.soJurosHoje, r.soJuros / Math.pow(1.04, 20), 1e-6);
+});
+
+test('renda passiva: prazos maiores pagam menos por mês', () => {
+  const s = renda();
+  const [a, b, c] = [15, 25, 35].map((n) => L.rendaPorPrazo(500000, s, n).mensal);
+  assert.ok(a > b && b > c);
+  assert.ok(c > L.rendaPassiva(500000, s).soJuros, 'consumir paga mais que só os juros');
+});
+
+test('renda desejada: o patrimônio necessário volta para a mesma renda (ida e volta)', () => {
+  const s = renda({ reajustaRenda: true, idadeAtual: 45, idadeFinal: 65 });
+  const n = L.patrimonioParaRenda(5000, s);
+  const comoConsumo = L.rendaPassiva(n.consumindo, s);
+  perto(comoConsumo.consumindoHoje, 5000, 1e-6);
+  const comoJuros = L.rendaPassiva(n.soJuros, s);
+  perto(comoJuros.soJurosHoje, 5000, 1e-6);
+  assert.ok(n.soJuros > n.consumindo);
+  assert.equal(L.patrimonioParaRenda(-1, s), null);
+  // e o aporte para chegar lá fecha com a projeção
+  const ap = L.aporteNecessario(s, n.consumindo);
+  perto(L.projetar(Object.assign({}, s, { aporte: ap.aporte })).final, n.consumindo, 1e-3);
+});
+
+test('renda passiva: campos novos entram na validação e planos antigos ganham os padrões', () => {
+  const v = L.validarSimulador({ idadeAtual: 45, idadeFinal: 65, aporte: 500 }); // plano salvo antes da renda existir
+  assert.equal(v.taxaRenda, 6);
+  assert.equal(v.anosRenda, 25);
+  assert.equal(v.reajustaRenda, true);
+  assert.equal(v.rendaDesejada, null);
+  const w = L.validarSimulador({ taxaRenda: 999, anosRenda: 500, reajustaRenda: 'sim', rendaDesejada: -4 });
+  assert.equal(w.taxaRenda, 200);
+  assert.equal(w.anosRenda, 70);
+  assert.equal(w.reajustaRenda, false); // só true de verdade vale
+  assert.equal(w.rendaDesejada, 0);
+});
+
 test('simulador: entradas inválidas viram valores seguros', () => {
   const s = L.validarSimulador({ idadeAtual: 70, idadeFinal: 60, inicial: -5, aporte: 'x', taxa: 9999, momento: 'qualquer', meta: -1, reajuste: NaN });
   assert.ok(s.idadeFinal > s.idadeAtual);

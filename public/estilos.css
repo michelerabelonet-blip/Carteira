@@ -398,6 +398,11 @@ tr.classe td.pc { color: var(--tinta); }
 .sim-secao { margin-top: 28px; }
 .sim-tab td, .sim-tab th { text-align: right; }
 .sim-tab td { white-space: nowrap; }
+.sim-subtitulo { font-size: 14px; font-weight: 650; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--linha); }
+.kpis.kpis-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.kpis-2 .kpi-valor { font-size: 19px; }
+.kpis-2 .kpi-detalhe { white-space: normal; }
+.sim-nota { margin: 8px 0 12px; }
 .sim-resultado .kpi:last-child { display: block; }
 @media (max-width: 520px) { .sim-resultado .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .sim-tab td.sim-rot, .sim-tab th:first-child { text-align: left; }

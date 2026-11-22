@@ -338,8 +338,13 @@
   // Parâmetros: idadeAtual, idadeFinal (anos inteiros), inicial (R$ já guardados), aporte (R$/mês),
   // reajuste (% ao ano sobre o aporte), taxa (% ao ano, efetiva), inflacao (% ao ano, só para o "valor de hoje"),
   // momento ('fim' ou 'inicio' do mês) e meta (R$ ou null).
+  // Depois de parar de aportar: taxaRenda (% ao ano), anosRenda (por quanto tempo retirar), reajustaRenda
+  // (a retirada acompanha a inflação?) e rendaDesejada (R$/mês em dinheiro de hoje, ou null).
   function simuladorPadrao() {
-    return { idadeAtual: 35, idadeFinal: 65, inicial: 0, aporte: 500, reajuste: 0, taxa: 8, inflacao: 4, momento: 'fim', meta: null };
+    return {
+      idadeAtual: 35, idadeFinal: 65, inicial: 0, aporte: 500, reajuste: 0, taxa: 8, inflacao: 4, momento: 'fim', meta: null,
+      taxaRenda: 6, anosRenda: 25, reajustaRenda: true, rendaDesejada: null
+    };
   }
 
   function numeroEntre(v, a, b, padrao) {
@@ -360,7 +365,11 @@
       taxa: numeroEntre(bruto.taxa, -50, 200, p.taxa),
       inflacao: numeroEntre(bruto.inflacao, -50, 100, p.inflacao),
       momento: bruto.momento === 'inicio' ? 'inicio' : 'fim',
-      meta: (bruto.meta === null || bruto.meta === undefined || bruto.meta === '') ? null : numeroEntre(bruto.meta, 0, MAX_VALOR, null)
+      meta: (bruto.meta === null || bruto.meta === undefined || bruto.meta === '') ? null : numeroEntre(bruto.meta, 0, MAX_VALOR, null),
+      taxaRenda: numeroEntre(bruto.taxaRenda, -50, 200, p.taxaRenda),
+      anosRenda: Math.round(numeroEntre(bruto.anosRenda, 1, 70, p.anosRenda)),
+      reajustaRenda: bruto.reajustaRenda === undefined ? p.reajustaRenda : bruto.reajustaRenda === true,
+      rendaDesejada: (bruto.rendaDesejada === null || bruto.rendaDesejada === undefined || bruto.rendaDesejada === '') ? null : numeroEntre(bruto.rendaDesejada, 0, 1e9, null)
     };
     if (s.idadeFinal <= s.idadeAtual) s.idadeFinal = Math.min(120, s.idadeAtual + 1);
     if (s.idadeFinal <= s.idadeAtual) s.idadeAtual = s.idadeFinal - 1;
@@ -406,6 +415,57 @@
     var porReal = projetar(Object.assign({}, s, { aporte: 1 })).final - base;
     if (!(porReal > 0)) return null;
     return { aporte: Math.max(0, (meta - base) / porReal), jaAtinge: meta <= base };
+  }
+
+  // ---------- renda passiva: quanto o patrimônio pode pagar por mês ----------
+  // Retiradas no fim de cada mês. Se "reajustaRenda", a retirada sobe todo mês pela inflação mensal equivalente
+  // (mantém o poder de compra); senão é fixa. i = rendimento mensal, g = reajuste mensal da retirada.
+  function parametrosRenda(s) {
+    return { i: taxaMensal(s.taxaRenda), g: s.reajustaRenda ? taxaMensal(s.inflacao) : 0, n: s.anosRenda * 12 };
+  }
+
+  // Primeira retirada por R$ 1 de patrimônio para esgotá-lo em n meses (anuidade, crescente se g > 0).
+  function fatorConsumo(p) {
+    var d = p.i - p.g;
+    if (Math.abs(d) < 1e-12) return (1 + p.i) / p.n;
+    var r = (1 + p.g) / (1 + p.i);
+    return d / (1 - Math.pow(r, p.n));
+  }
+
+  // O que o patrimônio paga por mês no 1º mês da aposentadoria, em duas formas:
+  //  - soJuros: vive só dos rendimentos e o patrimônio fica intacto (em poder de compra, se a retirada acompanha a inflação);
+  //  - consumindo: gasta o patrimônio até zerar em "anosRenda" anos.
+  // "Hoje" = o mesmo valor descontado da inflação até a data da aposentadoria.
+  function rendaPassiva(saldo, s) {
+    s = validarSimulador(s);
+    var p = parametrosRenda(s);
+    var defl = Math.pow(1 + s.inflacao / 100, s.idadeFinal - s.idadeAtual);
+    var soJuros = saldo * Math.max(0, p.i - p.g);
+    var consumindo = saldo * fatorConsumo(p);
+    return {
+      soJuros: soJuros, soJurosHoje: soJuros / defl, consumindo: consumindo, consumindoHoje: consumindo / defl,
+      jurosAbaixoDaInflacao: s.reajustaRenda && p.i <= p.g
+    };
+  }
+
+  // Renda mensal para um prazo de retirada diferente do escolhido (tabela de comparação).
+  function rendaPorPrazo(saldo, s, anos) {
+    s = validarSimulador(s);
+    var p = parametrosRenda(s);
+    p.n = Math.max(1, Math.round(anos)) * 12;
+    var defl = Math.pow(1 + s.inflacao / 100, s.idadeFinal - s.idadeAtual);
+    var v = saldo * fatorConsumo(p);
+    return { mensal: v, hoje: v / defl };
+  }
+
+  // Patrimônio necessário na aposentadoria para pagar "rendaHoje" por mês (em dinheiro de hoje, corrigido até lá).
+  function patrimonioParaRenda(rendaHoje, s) {
+    s = validarSimulador(s);
+    var p = parametrosRenda(s);
+    var r0 = Number(rendaHoje) * Math.pow(1 + s.inflacao / 100, s.idadeFinal - s.idadeAtual);
+    if (!isFinite(r0) || r0 < 0) return null;
+    var d = p.i - p.g;
+    return { rendaNominal: r0, soJuros: d > 1e-12 ? r0 / d : null, consumindo: r0 / fatorConsumo(p) };
   }
 
   // ---------- validação de dados vindos de fora (localStorage, banco, arquivo) ----------
@@ -524,6 +584,7 @@
     definirMeta: definirMeta, somaMetas: somaMetas, metasValidas: metasValidas, metasDoAtual: metasDoAtual, limparMetas: limparMetas,
     planoAjuste: planoAjuste, aplicarMetas: aplicarMetas, planoAporte: planoAporte, aplicarAporte: aplicarAporte,
     simuladorPadrao: simuladorPadrao, validarSimulador: validarSimulador, taxaMensal: taxaMensal, projetar: projetar, aporteNecessario: aporteNecessario,
+    rendaPassiva: rendaPassiva, rendaPorPrazo: rendaPorPrazo, patrimonioParaRenda: patrimonioParaRenda,
     validar: validar, parseNumero: parseNumero, numero: numero, brl: brl, fmtPct: fmtPct, pct: pct,
     paraCSV: paraCSV, tomDoAtivo: tomDoAtivo
   };
