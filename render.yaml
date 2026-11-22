@@ -1,0 +1,27 @@
+# Render Blueprint: site estático (só arquivos; o banco é o Supabase).
+# No Render: New > Blueprint > escolha este repositório. Depois preencha as 2 variáveis abaixo.
+services:
+  - type: web
+    name: montador-carteira
+    runtime: static
+    buildCommand: node scripts/gerar-config.js
+    staticPublishPath: ./public
+    envVars:
+      - key: SUPABASE_URL          # ex.: https://abcdefgh.supabase.co
+        sync: false
+      - key: SUPABASE_ANON_KEY     # SOMENTE a chave pública (anon / publishable)
+        sync: false
+      - key: NODE_VERSION
+        value: "20"
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      # Só carrega script do próprio site e só fala com o Supabase. Não limita quem pode embutir o app
+      # (ver "Endurecer o embed" no README).
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'none'; form-action 'self'; object-src 'none'"

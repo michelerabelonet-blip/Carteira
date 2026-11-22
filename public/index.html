@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Montador de Carteira</title>
+<meta name="description" content="Monte sua carteira por classes e ativos, defina metas, veja quanto aportar e salve na sua conta.">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <header class="topo">
+    <div class="titulo">
+      <h1>Montador de Carteira</h1>
+      <p>Distribua o patrimônio entre classes e ativos, defina metas e veja quanto aportar.</p>
+    </div>
+    <div class="conta" id="conta" hidden>
+      <span class="conta-email" id="contaEmail"></span>
+      <button type="button" class="btn" id="btnEntrar">Entrar</button>
+      <button type="button" class="btn" id="btnSair" hidden>Sair</button>
+    </div>
+  </header>
+
+  <section class="carteiras" id="barraCarteiras" hidden aria-label="Minhas carteiras">
+    <label for="selCarteira">Carteira</label>
+    <select id="selCarteira" class="campo"></select>
+    <div class="grupo-botoes">
+      <button type="button" class="btn peq" id="btnNovaCarteira">+ Nova</button>
+      <button type="button" class="btn peq" id="btnRenomearCarteira">Renomear</button>
+      <button type="button" class="btn peq" id="btnDuplicarCarteira">Duplicar</button>
+      <button type="button" class="btn peq" id="btnExcluirCarteira">Excluir</button>
+    </div>
+  </section>
+
+  <section class="ferramentas" aria-label="Ferramentas">
+    <div class="grupo-botoes">
+      <button type="button" class="btn peq" id="btnDesfazer" disabled title="Desfazer (Ctrl+Z)">↶ Desfazer</button>
+      <button type="button" class="btn peq" id="btnRefazer" disabled title="Refazer (Ctrl+Shift+Z)">↷ Refazer</button>
+      <button type="button" class="btn peq" id="btnCSV">Baixar planilha</button>
+      <button type="button" class="btn peq" id="btnExemplo">Restaurar exemplo</button>
+    </div>
+    <div class="avisos">
+      <span id="aviso" class="aviso" role="status" aria-live="polite"></span>
+      <span id="statusSalvo" class="status-salvo" role="status" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <main class="painel">
+    <section class="col-tabela" aria-labelledby="h-composicao">
+      <h2 id="h-composicao" class="so-leitor">Composição da carteira</h2>
+      <div class="total-linha">
+        <label for="inpTotal">Total da carteira</label>
+        <span class="campo-moeda"><input id="inpTotal" class="campo total" type="text" inputmode="decimal" autocomplete="off" spellcheck="false"></span>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <table class="tabela" id="tabela">
+        <caption class="so-leitor">Classes e ativos, com valor e percentual da carteira</caption>
+        <thead>
+          <tr><th scope="col">Classe / ativo</th><th scope="col" class="num">Valor</th><th scope="col" class="num">% da carteira</th><th scope="col"><span class="so-leitor">Ações</span></th></tr>
+        </thead>
+        <tbody id="corpo"></tbody>
+      </table>
+      <div class="rodape-tabela">
+        <button type="button" class="btn" id="btnNovaClasse">+ Nova classe</button>
+        <span class="ajuda" id="ajudaClasses"></span>
+      </div>
+    </section>
+
+    <section class="col-grafico" aria-labelledby="h-grafico">
+      <div class="grafico-cab">
+        <h2 id="h-grafico">Distribuição</h2>
+        <div class="seg" role="group" aria-label="Tipo de gráfico">
+          <button type="button" class="seg-btn" data-modo="rosca" aria-pressed="true">Rosca</button>
+          <button type="button" class="seg-btn" data-modo="barras" aria-pressed="false">Barras</button>
+        </div>
+      </div>
+      <div class="seg seg-grupo" id="segGrupo" role="group" aria-label="O que mostrar nas barras" hidden>
+        <button type="button" class="seg-btn" data-grupo="classes" aria-pressed="true">Por classe</button>
+        <button type="button" class="seg-btn" data-grupo="ativos" aria-pressed="false">Por ativo</button>
+      </div>
+      <div class="grafico" id="grafico"></div>
+      <p class="legenda-grafico" id="legendaGrafico"></p>
+    </section>
+  </main>
+
+  <section class="metas" aria-labelledby="h-metas">
+    <h2 id="h-metas">Metas, rebalanceamento e aporte</h2>
+    <p class="ajuda">Defina quanto você quer em cada classe (a soma precisa dar 100%). Com as metas prontas, veja o que comprar ou vender e como dividir um novo aporte.</p>
+    <div id="metasPainel"></div>
+  </section>
+
+  <p class="rodape">Ferramenta de simulação, sem caráter de recomendação de investimento. Os valores são os que você informa.</p>
+</div>
+
+<div class="dica" id="dica" role="tooltip" hidden></div>
+
+<dialog id="dlgPergunta" class="dialogo" aria-labelledby="perguntaTitulo">
+  <form method="dialog" id="formPergunta" novalidate>
+    <h2 id="perguntaTitulo"></h2>
+    <p id="perguntaTexto" class="dialogo-texto"></p>
+    <label id="perguntaRotulo" class="dialogo-campo" hidden>
+      <span id="perguntaRotuloTexto"></span>
+      <input id="perguntaCampo" class="campo" type="text" maxlength="60" autocomplete="off">
+    </label>
+    <div class="dialogo-acoes">
+      <button type="button" class="btn" id="perguntaCancelar">Cancelar</button>
+      <button type="button" class="btn" id="perguntaExtra" hidden></button>
+      <button type="submit" class="btn primario" id="perguntaOk">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgConta" class="dialogo" aria-labelledby="contaTitulo">
+  <form id="formConta" novalidate>
+    <h2 id="contaTitulo">Entrar</h2>
+    <div class="abas" id="contaAbas" role="group" aria-label="Escolha">
+      <button type="button" class="aba" data-modo="entrar" aria-pressed="true">Entrar</button>
+      <button type="button" class="aba" data-modo="criar" aria-pressed="false">Criar conta</button>
+    </div>
+    <p class="dialogo-texto" id="contaTexto"></p>
+    <label class="dialogo-campo" id="rotEmail">
+      <span>E-mail</span>
+      <input id="contaCampoEmail" class="campo" type="email" autocomplete="email" inputmode="email" maxlength="254">
+    </label>
+    <label class="dialogo-campo">
+      <span id="rotSenha">Senha</span>
+      <input id="contaCampoSenha" class="campo" type="password" autocomplete="current-password" maxlength="72">
+    </label>
+    <p class="erro" id="contaErro" role="alert"></p>
+    <div class="dialogo-acoes">
+      <button type="button" class="btn link" id="btnEsqueci">Esqueci a senha</button>
+      <button type="button" class="btn" id="contaCancelar">Cancelar</button>
+      <button type="submit" class="btn primario" id="contaOk">Entrar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="carteira-logica.js"></script>
+<script src="grafico.js"></script>
+<script src="armazenamento.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

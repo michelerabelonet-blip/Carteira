@@ -1,0 +1,16 @@
+{
+  "name": "montador-carteira",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Montador de Carteira: simulador de alocação por classes e ativos, com metas, aporte e carteiras salvas no Supabase.",
+  "scripts": {
+    "dev": "node scripts/servir.js",
+    "config": "node scripts/gerar-config.js",
+    "build": "node scripts/gerar-config.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

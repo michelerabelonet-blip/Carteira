@@ -1,0 +1,7 @@
+node_modules/
+.env
+.env.*
+!.env.exemplo
+# gerado no build (Render) ou por "npm run config"
+public/config.js
+*.log
