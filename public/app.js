@@ -58,6 +58,8 @@
   var sessaoAtual = null;
   var recuperando = false;        // abriu pelo link de "esqueci a senha"
   var googleDisponivel = false;
+  var abaAtual = 'carteira';      // 'carteira' ou 'simulador'
+  var simulador = null;
 
   // Qual tela está à vista: 'carregando', 'login' ou 'app'. Fora do 'app', nenhum dado de carteira aparece.
   function mostrarTela(qual, texto, comErro) {
@@ -632,6 +634,25 @@
     renderKpis();
     renderMetas();
     atualizarNumeros();
+    if (abaAtual === 'simulador' && simulador) simulador.renderizar();
+  }
+
+  // ---------- abas: Carteira | Simulador de juros ----------
+  function mostrarVista(qual) {
+    abaAtual = qual;
+    $('vistaCarteira').hidden = qual !== 'carteira';
+    $('vistaSimulador').hidden = qual !== 'simulador';
+    Array.prototype.forEach.call(document.querySelectorAll('.aba-app'), function (b) {
+      b.setAttribute('aria-selected', b.getAttribute('data-vista') === qual ? 'true' : 'false');
+    });
+    if (qual === 'simulador' && simulador && estado) simulador.renderizar();
+  }
+
+  // O simulador é guardado junto com a carteira (cada carteira tem o seu plano).
+  function gravarSimulador(sim) {
+    estado.simulador = sim;
+    if (confirmado) confirmado.simulador = L.clonar(sim); // não conta como ação de desfazer
+    agendarSalvar();
   }
 
   // ---------- eventos gerais ----------
@@ -679,7 +700,9 @@
       perguntar({ titulo: 'Restaurar o exemplo?', texto: 'A carteira atual será trocada pelo exemplo. Você pode desfazer logo em seguida.', ok: 'Restaurar' }).then(function (r) {
         if (r.acao !== 'ok') return;
         aporteValor = 0;
-        aplicar(L.exemplo(), { estrutura: true, aviso: 'Exemplo restaurado.' });
+        var novo = L.exemplo();
+        if (estado.simulador) novo.simulador = estado.simulador; // o plano do simulador não é apagado
+        aplicar(novo, { estrutura: true, aviso: 'Exemplo restaurado.' });
       });
     });
 
@@ -701,9 +724,13 @@
       });
     });
 
+    Array.prototype.forEach.call(document.querySelectorAll('.aba-app'), function (b) {
+      b.addEventListener('click', function () { mostrarVista(b.getAttribute('data-vista')); });
+    });
+
     document.addEventListener('keydown', function (ev) {
       var t = ev.target, emCampo = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
-      if (emCampo || !(ev.ctrlKey || ev.metaKey)) return;
+      if (emCampo || !(ev.ctrlKey || ev.metaKey) || abaAtual !== 'carteira') return;
       var k = ev.key.toLowerCase();
       if (k === 'z' && !ev.shiftKey) { ev.preventDefault(); desfazerAcao(); }
       else if ((k === 'z' && ev.shiftKey) || k === 'y') { ev.preventDefault(); refazerAcao(); }
@@ -839,6 +866,9 @@
     refs = { classes: {}, ativos: {}, metas: {}, kpis: {} };
     grafico.atualizar({ total: 0, classes: [] }, { modo: modoGrafico, grupo: grupoBarras });
     grafico.destacar(null, null);
+    // o simulador também é esvaziado: nenhum número de quem saiu fica na página
+    if (simulador) simulador.limpar();
+    mostrarVista('carteira');
   }
 
   // O Supabase devolve o motivo na URL quando o Google recusa ou o link expirou.
@@ -1133,6 +1163,12 @@
   function iniciar() {
     modoVisitante = !A.contasDisponiveis();
     grafico = G.criar($('grafico'), $('dica'), { aoDestacar: definirDestaque });
+    simulador = window.Simulador.criar({
+      raiz: $('vistaSimulador'), dica: $('dica'),
+      obter: function () { return estado.simulador || L.simuladorPadrao(); },
+      gravar: gravarSimulador,
+      totalCarteira: function () { return L.total(estado); }
+    });
     ligarEventosGerais();
     if (modoVisitante) {
       // sem Supabase configurado (teste no computador): funciona sem login, salvando no navegador

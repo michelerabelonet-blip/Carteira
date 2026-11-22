@@ -334,6 +334,80 @@
     return r;
   }
 
+  // ---------- simulador de juros compostos ----------
+  // Parâmetros: idadeAtual, idadeFinal (anos inteiros), inicial (R$ já guardados), aporte (R$/mês),
+  // reajuste (% ao ano sobre o aporte), taxa (% ao ano, efetiva), inflacao (% ao ano, só para o "valor de hoje"),
+  // momento ('fim' ou 'inicio' do mês) e meta (R$ ou null).
+  function simuladorPadrao() {
+    return { idadeAtual: 35, idadeFinal: 65, inicial: 0, aporte: 500, reajuste: 0, taxa: 8, inflacao: 4, momento: 'fim', meta: null };
+  }
+
+  function numeroEntre(v, a, b, padrao) {
+    v = Number(v);
+    if (!isFinite(v)) return padrao;
+    return Math.min(b, Math.max(a, v));
+  }
+
+  function validarSimulador(bruto) {
+    var p = simuladorPadrao();
+    if (!bruto || typeof bruto !== 'object') return p;
+    var s = {
+      idadeAtual: Math.round(numeroEntre(bruto.idadeAtual, 0, 100, p.idadeAtual)),
+      idadeFinal: Math.round(numeroEntre(bruto.idadeFinal, 1, 120, p.idadeFinal)),
+      inicial: numeroEntre(bruto.inicial, 0, MAX_VALOR, p.inicial),
+      aporte: numeroEntre(bruto.aporte, 0, 1e9, p.aporte),
+      reajuste: numeroEntre(bruto.reajuste, -50, 100, p.reajuste),
+      taxa: numeroEntre(bruto.taxa, -50, 200, p.taxa),
+      inflacao: numeroEntre(bruto.inflacao, -50, 100, p.inflacao),
+      momento: bruto.momento === 'inicio' ? 'inicio' : 'fim',
+      meta: (bruto.meta === null || bruto.meta === undefined || bruto.meta === '') ? null : numeroEntre(bruto.meta, 0, MAX_VALOR, null)
+    };
+    if (s.idadeFinal <= s.idadeAtual) s.idadeFinal = Math.min(120, s.idadeAtual + 1);
+    if (s.idadeFinal <= s.idadeAtual) s.idadeAtual = s.idadeFinal - 1;
+    return s;
+  }
+
+  // taxa mensal equivalente a uma taxa anual efetiva (juros compostos)
+  function taxaMensal(anual) {
+    return Math.pow(1 + anual / 100, 1 / 12) - 1;
+  }
+
+  // Mês a mês. O aporte é reajustado uma vez por ano (a partir do 2º ano).
+  // Devolve o resultado final e uma linha por ano (aportado, saldo, juros, valor em dinheiro de hoje).
+  function projetar(s) {
+    s = validarSimulador(s);
+    var meses = (s.idadeFinal - s.idadeAtual) * 12;
+    var i = taxaMensal(s.taxa), fator = 1 + s.reajuste / 100, defl = 1 + s.inflacao / 100;
+    var saldo = s.inicial, aportado = s.inicial, aporte = s.aporte;
+    var anos = [{ ano: 0, idade: s.idadeAtual, aportado: aportado, saldo: saldo, juros: 0, real: saldo }];
+    for (var m = 1; m <= meses; m++) {
+      if (m > 1 && (m - 1) % 12 === 0) aporte *= fator;
+      saldo = s.momento === 'inicio' ? (saldo + aporte) * (1 + i) : saldo * (1 + i) + aporte;
+      aportado += aporte;
+      if (m % 12 === 0) {
+        var ano = m / 12;
+        anos.push({ ano: ano, idade: s.idadeAtual + ano, aportado: aportado, saldo: saldo, juros: saldo - aportado, real: saldo / Math.pow(defl, ano) });
+      }
+    }
+    var ultimo = anos[anos.length - 1];
+    return {
+      meses: meses, anos: anos, final: ultimo.saldo, aportado: ultimo.aportado, juros: ultimo.juros,
+      finalReal: ultimo.real, ultimoAporte: aporte, taxaMensal: i
+    };
+  }
+
+  // Quanto aportar por mês (o 1º aporte; os seguintes seguem o reajuste) para chegar a uma meta.
+  // O resultado final é linear no aporte, então dá para resolver sem tentativa e erro.
+  function aporteNecessario(s, meta) {
+    s = validarSimulador(s);
+    meta = Number(meta);
+    if (!isFinite(meta) || meta < 0) return null;
+    var base = projetar(Object.assign({}, s, { aporte: 0 })).final;
+    var porReal = projetar(Object.assign({}, s, { aporte: 1 })).final - base;
+    if (!(porReal > 0)) return null;
+    return { aporte: Math.max(0, (meta - base) / porReal), jaAtinge: meta <= base };
+  }
+
   // ---------- validação de dados vindos de fora (localStorage, banco, arquivo) ----------
   function validar(bruto) {
     if (!bruto || typeof bruto !== 'object' || !Array.isArray(bruto.classes) || !bruto.classes.length) return null;
@@ -365,7 +439,9 @@
         for (var i = 0; i < MAX_CLASSES; i++) if (!coresUsadas[i]) { c.cor = i; coresUsadas[i] = true; break; }
       }
     });
-    return { v: 1, classes: classes };
+    var r = { v: 1, classes: classes };
+    if (bruto.simulador && typeof bruto.simulador === 'object') r.simulador = validarSimulador(bruto.simulador);
+    return r;
   }
 
   // ---------- números e textos ----------
@@ -447,6 +523,7 @@
     definirPercentualClasse: definirPercentualClasse, definirTotal: definirTotal,
     definirMeta: definirMeta, somaMetas: somaMetas, metasValidas: metasValidas, metasDoAtual: metasDoAtual, limparMetas: limparMetas,
     planoAjuste: planoAjuste, aplicarMetas: aplicarMetas, planoAporte: planoAporte, aplicarAporte: aplicarAporte,
+    simuladorPadrao: simuladorPadrao, validarSimulador: validarSimulador, taxaMensal: taxaMensal, projetar: projetar, aporteNecessario: aporteNecessario,
     validar: validar, parseNumero: parseNumero, numero: numero, brl: brl, fmtPct: fmtPct, pct: pct,
     paraCSV: paraCSV, tomDoAtivo: tomDoAtivo
   };

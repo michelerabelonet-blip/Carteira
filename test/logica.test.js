@@ -233,6 +233,95 @@ test('ratearClasse: divide por igual sem mudar o valor da classe nem o total', (
   assert.deepEqual(L.ratearClasse(e, 'nao-existe'), e);
 });
 
+// ---------- simulador de juros compostos ----------
+const sim = (extra = {}) => ({ idadeAtual: 45, idadeFinal: 65, inicial: 0, aporte: 500, reajuste: 0, taxa: 10, inflacao: 4, momento: 'fim', meta: null, ...extra });
+
+test('simulador: R$ 500/mês por 20 anos a 10% a.a. dá R$ 359.130 (conta fechada)', () => {
+  const r = L.projetar(sim());
+  const i = Math.pow(1.1, 1 / 12) - 1;
+  const esperado = 500 * (Math.pow(1 + i, 240) - 1) / i;
+  perto(r.final, esperado, 1e-6);
+  assert.equal(Math.round(r.final), 359130);
+  perto(r.aportado, 120000);
+  perto(r.juros, r.final - 120000);
+  assert.equal(r.meses, 240);
+  assert.equal(r.anos.length, 21);
+  assert.equal(r.anos[0].idade, 45);
+  assert.equal(r.anos[20].idade, 65);
+});
+
+test('simulador: sem juros é só soma; com valor inicial parado em 10% cresce 10% no ano', () => {
+  perto(L.projetar(sim({ taxa: 0 })).final, 120000);
+  const a = L.projetar(sim({ idadeFinal: 46, aporte: 0, inicial: 1000, taxa: 10 }));
+  perto(a.final, 1100, 1e-6);
+});
+
+test('simulador: aporte no início do mês rende um mês a mais que no fim', () => {
+  const fim = L.projetar(sim()), ini = L.projetar(sim({ momento: 'inicio' }));
+  perto(ini.final, fim.final * (1 + L.taxaMensal(10)), 1e-6);
+});
+
+test('simulador: reajuste anual do aporte', () => {
+  const r = L.projetar(sim({ idadeFinal: 47, taxa: 0, reajuste: 10, aporte: 100 }));
+  perto(r.aportado, 12 * 100 + 12 * 110); // 2.520
+  perto(r.ultimoAporte, 110);
+});
+
+test('simulador: valor em dinheiro de hoje desconta a inflação', () => {
+  const r = L.projetar(sim({ taxa: 0, aporte: 0, inicial: 1000, inflacao: 5, idadeFinal: 47 }));
+  perto(r.finalReal, 1000 / 1.05 / 1.05, 1e-6);
+  perto(L.projetar(sim({ inflacao: 0 })).finalReal, L.projetar(sim({ inflacao: 0 })).final);
+});
+
+test('simulador: a linha de cada ano fecha (aportado + juros = saldo) e o saldo nunca cai com taxa positiva', () => {
+  const r = L.projetar(sim({ inicial: 5000, reajuste: 3 }));
+  r.anos.forEach((a, k) => {
+    perto(a.aportado + a.juros, a.saldo, 1e-6);
+    if (k > 0) assert.ok(a.saldo > r.anos[k - 1].saldo);
+  });
+});
+
+test('simulador: aporte necessário para uma meta (e a volta dá a mesma meta)', () => {
+  const r = L.aporteNecessario(sim({ taxa: 10 }), 1000000);
+  assert.equal(Math.round(r.aporte), 1392);
+  assert.equal(r.jaAtinge, false);
+  perto(L.projetar(sim({ aporte: r.aporte })).final, 1000000, 1e-3);
+  // com reajuste e valor inicial também fecha
+  const r2 = L.aporteNecessario(sim({ inicial: 20000, reajuste: 5 }), 800000);
+  perto(L.projetar(sim({ inicial: 20000, reajuste: 5, aporte: r2.aporte })).final, 800000, 1e-3);
+  // meta que o valor inicial sozinho já cumpre
+  const r3 = L.aporteNecessario(sim({ inicial: 500000 }), 100000);
+  assert.equal(r3.jaAtinge, true);
+  assert.equal(r3.aporte, 0);
+  assert.equal(L.aporteNecessario(sim(), -5), null);
+  assert.equal(L.aporteNecessario(sim(), 'abc'), null);
+});
+
+test('simulador: entradas inválidas viram valores seguros', () => {
+  const s = L.validarSimulador({ idadeAtual: 70, idadeFinal: 60, inicial: -5, aporte: 'x', taxa: 9999, momento: 'qualquer', meta: -1, reajuste: NaN });
+  assert.ok(s.idadeFinal > s.idadeAtual);
+  assert.equal(s.inicial, 0);
+  assert.equal(s.aporte, 500);
+  assert.equal(s.taxa, 200);
+  assert.equal(s.momento, 'fim');
+  assert.equal(s.meta, 0);
+  assert.equal(s.reajuste, 0);
+  assert.deepEqual(L.validarSimulador(null), L.simuladorPadrao());
+  assert.deepEqual(L.validarSimulador('texto'), L.simuladorPadrao());
+  assert.ok(L.projetar({}).anos.length > 1);
+});
+
+test('simulador: a carteira guarda o simulador e o validar o limpa', () => {
+  const e = L.exemplo();
+  assert.equal(e.simulador, undefined);
+  const com = Object.assign(L.clonar(e), { simulador: { idadeAtual: 45, idadeFinal: 65, aporte: 500, taxa: 10, lixo: 'x', momento: 'inicio' } });
+  const v = L.validar(com);
+  assert.equal(v.simulador.aporte, 500);
+  assert.equal(v.simulador.momento, 'inicio');
+  assert.equal(v.simulador.lixo, undefined);
+  assert.equal(L.validar(e).simulador, undefined);
+});
+
 test('metas do atual: 1 casa decimal e soma exatamente 100', () => {
   const e = L.metasDoAtual(L.definirTotal({ v: 1, classes: [
     { id: 'a', nome: 'A', cor: 0, meta: null, travada: false, itens: [{ id: 'a1', nome: 'x', valor: 1 }] },

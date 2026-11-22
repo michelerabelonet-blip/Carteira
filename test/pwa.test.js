@@ -72,6 +72,15 @@ test('service worker: tudo o que ele guarda existe (config.js é gerado no build
   }
 });
 
+test('todo script do index.html está na lista do service worker (para abrir sem internet)', () => {
+  const sw = ler('sw.js');
+  const lista = /const BASICOS = \[([\s\S]*?)\];/.exec(sw)[1];
+  const guardados = [...lista.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  const scripts = [...ler('index.html').matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(scripts.length >= 6);
+  for (const s of scripts) assert.ok(guardados.includes(s), s + ' falta em BASICOS (sw.js)');
+});
+
 test('o app registra o service worker e pede para instalar', () => {
   const app = ler('app.js');
   assert.match(app, /serviceWorker\.register\('sw\.js'\)/);

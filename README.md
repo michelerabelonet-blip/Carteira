@@ -22,6 +22,7 @@ comprar/vender para chegar nelas e como dividir um novo aporte. Quem cria conta 
 | Gráfico | rosca de dois anéis (classes por dentro, ativos por fora) ou barras (por classe ou por ativo), com dica ao passar o mouse |
 | Metas | % desejada por classe, diferença para a meta e quanto **comprar/vender** para chegar lá |
 | Aporte | divide um valor novo só entre as classes abaixo da meta, sem vender nada |
+| Simulador de juros | aba **Simulador de juros**: idade, valor já guardado (dá para usar o total da carteira), aporte mensal, reajuste anual do aporte, rentabilidade, inflação e momento do aporte. Mostra o valor final (também em dinheiro de hoje), quanto é aportado e quanto é juros, gráfico ano a ano, cenários de rentabilidade, tabela ano a ano e **quanto aportar para chegar a uma meta**. Cada carteira guarda o seu plano |
 | Extras | desfazer/refazer (Ctrl+Z), planilha CSV, carteiras múltiplas (renomear, duplicar, excluir) |
 
 Limites: 8 classes, 30 ativos por classe, 20 carteiras por conta.
@@ -192,7 +193,8 @@ outros domínios; se faltar algum, o embed fica em branco ali).
 public/                 o site (é isso que o Render publica)
   index.html, estilos.css
   carteira-logica.js    regras de cálculo, sem tela (testada)
-  grafico.js            rosca e barras em SVG/HTML
+  grafico.js            rosca, barras e colunas empilhadas em SVG/HTML
+  simulador.js          tela do simulador de juros compostos
   armazenamento.js      navegador (visitante) e Supabase (conta)
   app.js                tela, desfazer, metas, aporte, login, convite para instalar
   manifest.json, sw.js  app instalável (PWA) e abertura sem internet

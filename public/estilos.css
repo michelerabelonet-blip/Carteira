@@ -351,6 +351,65 @@ tr.classe td.pc { color: var(--tinta); }
   .barra-linha { grid-template-columns: minmax(60px, 30%) minmax(0, 1fr) 68px; }
 }
 
+/* ---------- abas do app: Carteira | Simulador ---------- */
+.abas-app { display: flex; gap: 4px; border-bottom: 1px solid var(--linha); margin: 0 0 16px; overflow-x: auto; }
+.aba-app {
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--tinta-3); background: transparent; border: 0;
+  border-bottom: 2px solid transparent; padding: 10px 14px; min-height: 44px; margin-bottom: -1px; cursor: pointer; white-space: nowrap;
+}
+.aba-app:hover { color: var(--tinta); }
+.aba-app[aria-selected="true"] { color: var(--tinta); border-bottom-color: var(--tinta); }
+
+/* ---------- simulador de juros compostos ---------- */
+.sim-h2 { font-size: 18px; font-weight: 650; }
+.sim-intro { margin: 4px 0 18px; max-width: 70ch; }
+.sim-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+@media (min-width: 900px) { .sim-grade { grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr); gap: 32px; align-items: start; } }
+.sim-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+.sim-campo label { display: block; font-size: 13px; color: var(--tinta-2); margin-bottom: 4px; }
+.sim-campo .campo-moeda { display: block; }
+.sim-campo .campo-moeda .campo { width: 100%; }
+.sim-campo select.campo { width: 100%; }
+.sim-campo .ajuda { margin-top: 4px; font-size: 12px; }
+.sim-largo { grid-column: 1 / -1; }
+.sim-pct { display: flex; }
+.sim-pct .campo { width: 100%; text-align: right; font-weight: 400; }
+.campo-pct.sim-pct span { display: inline; min-width: 38px; padding-left: 6px; }
+
+.hero { padding: 2px 0 14px; }
+.hero-rotulo { color: var(--tinta-2); font-size: 14px; }
+.hero-valor { font-size: 48px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; margin: 2px 0 4px; overflow-wrap: anywhere; }
+.hero-sub { color: var(--tinta-2); font-size: 13.5px; }
+.sim-titulo { font-size: 14px; font-weight: 650; margin: 18px 0 8px; }
+
+.grafico-colunas { position: relative; width: 100%; }
+.grafico-colunas svg { display: block; width: 100%; height: auto; overflow: visible; }
+.grade { stroke: var(--linha); stroke-width: 1; }
+.eixo-base { stroke: var(--linha-forte); stroke-width: 1; }
+.eixo-texto { font-family: var(--fonte); font-size: 11px; fill: var(--tinta-3); }
+.rotulo-fim { font-family: var(--fonte); font-size: 12px; font-weight: 650; fill: var(--tinta); }
+.coluna { transition: opacity .15s; }
+.grafico-colunas.tem-destaque .coluna { opacity: .35; }
+.grafico-colunas.tem-destaque .coluna.on { opacity: 1; }
+.sim-legenda { display: flex; gap: 6px 16px; flex-wrap: wrap; align-items: center; margin-top: 8px; font-size: 13px; color: var(--tinta-2); }
+.sim-leg-item { display: inline-flex; align-items: center; gap: 4px; }
+.sim-meta { margin-top: 14px; }
+.sim-meta .info p + p { margin-top: 4px; }
+.sim-secao { margin-top: 28px; }
+.sim-tab td, .sim-tab th { text-align: right; }
+.sim-tab td { white-space: nowrap; }
+.sim-resultado .kpi:last-child { display: block; }
+@media (max-width: 520px) { .sim-resultado .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sim-tab td.sim-rot, .sim-tab th:first-child { text-align: left; }
+.sim-tab tr.atual td { font-weight: 650; background: var(--suave); }
+.sim-detalhes summary { cursor: pointer; font-size: 14px; font-weight: 650; padding: 6px 0; margin-bottom: 8px; }
+
+@media (max-width: 560px) {
+  .hero-valor { font-size: 38px; }
+  .sim-form { grid-template-columns: minmax(0, 1fr); }
+  .abas-app { margin-bottom: 12px; }
+}
+
 /* Celular/tablet (toque): o iPhone dá zoom ao focar um campo com letra menor que 16px; isto evita. */
 @media (pointer: coarse) {
   input, select, textarea, .campo, .campo-nome, .tabela td.val .campo { font-size: 16px; }

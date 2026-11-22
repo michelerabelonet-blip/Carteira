@@ -98,6 +98,13 @@
     </div>
   </section>
 
+  <div class="abas-app" role="tablist" aria-label="Seção do app">
+    <button type="button" class="aba-app" role="tab" id="abaCarteira" data-vista="carteira" aria-selected="true" aria-controls="vistaCarteira">Carteira</button>
+    <button type="button" class="aba-app" role="tab" id="abaSimulador" data-vista="simulador" aria-selected="false" aria-controls="vistaSimulador">Simulador de juros</button>
+  </div>
+
+  <div id="vistaCarteira" role="tabpanel" aria-labelledby="abaCarteira">
+
   <section class="ferramentas" aria-label="Ferramentas">
     <div class="grupo-botoes">
       <button type="button" class="btn peq" id="btnDesfazer" disabled title="Desfazer (Ctrl+Z)">↶ Desfazer</button>
@@ -155,6 +162,10 @@
     <div id="metasPainel"></div>
   </section>
 
+  </div>
+
+  <div id="vistaSimulador" role="tabpanel" aria-labelledby="abaSimulador" hidden></div>
+
   <p class="rodape">Ferramenta de simulação, sem caráter de recomendação de investimento. Os valores são os que você informa.</p>
 </div>
 
@@ -180,6 +191,7 @@
 <script src="vendor/supabase.js"></script>
 <script src="carteira-logica.js"></script>
 <script src="grafico.js"></script>
+<script src="simulador.js"></script>
 <script src="armazenamento.js"></script>
 <script src="app.js"></script>
 </body>

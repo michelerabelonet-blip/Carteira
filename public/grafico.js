@@ -280,5 +280,108 @@
     };
   }
 
-  window.Grafico = { criar: criar };
+  // ---------- colunas empilhadas: quanto foi aportado e quanto veio de juros, ano a ano ----------
+  function passoBonito(max) {
+    var bruto = max / 4, exp = Math.pow(10, Math.floor(Math.log(bruto) / Math.LN10)), f = bruto / exp;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * exp;
+  }
+
+  function compacto(v) {
+    if (v >= 1e6) { var m = v / 1e6; return 'R$ ' + (Math.abs(m - Math.round(m)) < 0.05 ? String(Math.round(m)) : m.toFixed(1).replace('.', ',')) + ' mi'; }
+    if (v >= 1e3) return 'R$ ' + Math.round(v / 1e3) + ' mil';
+    return 'R$ ' + Math.round(v);
+  }
+
+  // topo arredondado (4px) e base reta, como pede o padrão de colunas
+  function colunaPath(x, y, w, h, r) {
+    r = Math.max(0, Math.min(r, w / 2, h));
+    if (r <= 0) return 'M' + x + ' ' + y + 'h' + w + 'v' + h + 'h' + (-w) + 'Z';
+    return 'M' + x + ' ' + (y + h) + 'V' + (y + r) + 'Q' + x + ' ' + y + ' ' + (x + r) + ' ' + y + 'H' + (x + w - r) +
+      'Q' + (x + w) + ' ' + y + ' ' + (x + w) + ' ' + (y + r) + 'V' + (y + h) + 'Z';
+  }
+
+  function criarColunas(container, dicaEl) {
+    function esconder() { dicaEl.hidden = true; }
+    function mover(x, y) {
+      var w = dicaEl.offsetWidth, hh = dicaEl.offsetHeight, doc = document.documentElement;
+      var esq = Math.min(Math.max(8, x + 14), Math.max(8, doc.clientWidth - w - 8));
+      var topo = y - hh - 12;
+      if (topo < 8) topo = y + 18;
+      dicaEl.style.left = (esq + window.pageXOffset) + 'px';
+      dicaEl.style.top = (topo + window.pageYOffset) + 'px';
+    }
+    function mostrar(l, cores, x, y) {
+      dicaEl.textContent = '';
+      dicaEl.appendChild(h('div', 'dica-valor', L.brl(l.saldo) + ' aos ' + l.idade + ' anos'));
+      [['Aportado', l.aportado, cores[0]], ['Juros', l.juros, cores[1]]].forEach(function (t) {
+        var linha = h('div', 'dica-nome');
+        linha.style.setProperty('--cor', t[2]);
+        linha.appendChild(h('span', 'dica-chave'));
+        linha.appendChild(h('span', null, t[0] + ': ' + L.brl(t[1])));
+        dicaEl.appendChild(linha);
+      });
+      dicaEl.appendChild(h('div', 'dica-extra', 'Em dinheiro de hoje: ' + L.brl(l.real)));
+      dicaEl.hidden = false;
+      mover(x, y);
+    }
+
+    return {
+      // dados: { cores: [cor do aportado, cor dos juros], linhas: [{ano, idade, aportado, juros, saldo, real}] } (ano 1 em diante)
+      atualizar: function (dados) {
+        esconder();
+        container.textContent = '';
+        var linhas = dados.linhas, n = linhas.length;
+        if (!n) return;
+        var W = 640, H = 300, ml = 66, mr = 10, mt = 22, mb = 30;
+        var pw = W - ml - mr, ph = H - mt - mb, base = mt + ph;
+        var max = 0;
+        linhas.forEach(function (l) { if (l.saldo > max) max = l.saldo; });
+        var passo = passoBonito(max > 0 ? max : 1), topo = Math.ceil((max > 0 ? max : 1) / passo) * passo;
+        var svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': 'Gráfico de colunas: valor aportado e juros, ano a ano. Os mesmos números estão na tabela abaixo.' });
+
+        // grade e eixo Y (hairline, sólida)
+        for (var v = 0; v <= topo + 1e-9; v += passo) {
+          var y = base - v / topo * ph;
+          svg.appendChild(s('line', { x1: ml, x2: W - mr, y1: y, y2: y, class: v === 0 ? 'eixo-base' : 'grade' }));
+          var t = s('text', { x: ml - 8, y: y + 4, 'text-anchor': 'end', class: 'eixo-texto' });
+          t.textContent = compacto(v);
+          svg.appendChild(t);
+        }
+
+        var slot = pw / n, larg = Math.max(2, Math.min(24, slot * 0.7));
+        var cada = n <= 10 ? 1 : n <= 20 ? 2 : n <= 40 ? 5 : 10;
+        linhas.forEach(function (l, k) {
+          var cx = ml + slot * (k + 0.5), x = cx - larg / 2;
+          var hAport = l.aportado / topo * ph, hJuros = Math.max(0, l.juros) / topo * ph, gap = 2;
+          var g = s('g', { class: 'coluna' });
+          if (hAport > gap) g.appendChild(s('path', { d: colunaPath(x, base - hAport + gap / 2, larg, hAport - gap / 2, hJuros > 0.5 ? 0 : 4), fill: dados.cores[0] }));
+          if (hJuros > gap) g.appendChild(s('path', { d: colunaPath(x, base - hAport - hJuros, larg, hJuros - gap / 2, 4), fill: dados.cores[1] }));
+          else if (hAport > gap && hJuros <= 0.5) { /* só aportado: o topo já é arredondado */ }
+          svg.appendChild(g);
+          // área de toque/mouse maior que a coluna (a faixa inteira do ano)
+          var area = s('rect', { x: ml + slot * k, y: mt, width: slot, height: ph, fill: 'transparent', class: 'coluna-area' });
+          area.addEventListener('pointerenter', function (ev) {
+            container.classList.add('tem-destaque'); g.classList.add('on'); mostrar(l, dados.cores, ev.clientX, ev.clientY);
+          });
+          area.addEventListener('pointermove', function (ev) { if (!dicaEl.hidden) mover(ev.clientX, ev.clientY); });
+          area.addEventListener('pointerleave', function () { container.classList.remove('tem-destaque'); g.classList.remove('on'); esconder(); });
+          svg.appendChild(area);
+          if (l.ano % cada === 0) {
+            var tx = s('text', { x: cx, y: H - 10, 'text-anchor': 'middle', class: 'eixo-texto' });
+            tx.textContent = String(l.idade);
+            svg.appendChild(tx);
+          }
+        });
+
+        // rótulo só no último ano (os outros valores ficam no eixo, na dica e na tabela)
+        var ult = linhas[n - 1], xu = ml + slot * (n - 0.5), yu = base - ult.saldo / topo * ph - 6;
+        var fim = s('text', { x: Math.min(W - mr, xu + 4), y: Math.max(12, yu), 'text-anchor': 'end', class: 'rotulo-fim' });
+        fim.textContent = L.brl(ult.saldo);
+        svg.appendChild(fim);
+        container.appendChild(svg);
+      }
+    };
+  }
+
+  window.Grafico = { criar: criar, criarColunas: criarColunas };
 })();

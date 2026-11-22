@@ -9,7 +9,7 @@
 const VERSAO = 'v1'; // troque para limpar as cópias antigas
 const CACHE = 'montador-' + VERSAO;
 const BASICOS = [
-  './', 'index.html', 'estilos.css', 'app.js', 'grafico.js', 'armazenamento.js', 'carteira-logica.js',
+  './', 'index.html', 'estilos.css', 'app.js', 'grafico.js', 'simulador.js', 'armazenamento.js', 'carteira-logica.js',
   'config.js', 'vendor/supabase.js', 'manifest.json',
   'icones/icon-192.png', 'icones/icon-512.png', 'icones/apple-touch-icon.png', 'icones/favicon-32.png'
 ];
