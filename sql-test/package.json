@@ -1,0 +1,12 @@
+{
+  "name": "montador-carteira-sql-test",
+  "private": true,
+  "description": "Testa supabase/schema.sql num Postgres de verdade (PGlite, em memória). Fica separado para o site não depender de nada.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test schema.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.0"
+  }
+}

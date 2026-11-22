@@ -43,14 +43,20 @@
     if (m.indexOf('password should be at least') >= 0 || cod === 'weak_password') return 'Senha fraca. Use pelo menos 8 caracteres.';
     if (m.indexOf('same password') >= 0 || cod === 'same_password') return 'A nova senha precisa ser diferente da atual.';
     if (m.indexOf('invalid email') >= 0 || m.indexOf('unable to validate email') >= 0) return 'E-mail inválido.';
-    if (m.indexOf('row-level security') >= 0 || cod === '42501') return 'Não foi possível salvar (limite de ' + LIMITE_CARTEIRAS + ' carteiras ou sessão expirada).';
+    if (m.indexOf('provider is not enabled') >= 0 || m.indexOf('unsupported provider') >= 0) return 'Entrar com o Google ainda não foi ativado neste site.';
+    if (m.indexOf('limite de ' + LIMITE_CARTEIRAS) >= 0) return 'Limite de ' + LIMITE_CARTEIRAS + ' carteiras atingido. Exclua uma para criar outra.';
+    if (m.indexOf('row-level security') >= 0 || cod === '42501') return 'Sem permissão para salvar. Sua sessão pode ter expirado: saia e entre de novo.';
     if (m.indexOf('failed to fetch') >= 0 || m.indexOf('networkerror') >= 0 || m.indexOf('load failed') >= 0) return 'Sem conexão com o servidor. Verifique a internet.';
     if (m.indexOf('jwt') >= 0 || m.indexOf('not authenticated') >= 0) return 'Sua sessão expirou. Entre de novo.';
     return 'Algo deu errado. Tente de novo em instantes.';
   }
 
   function checar(res) {
-    if (res.error) { var e = new Error(traduzir(res.error)); e.original = res.error; throw e; }
+    if (res.error) {
+      // o detalhe técnico vai para o console (F12), para facilitar achar a causa de um erro
+      try { console.error('[Montador] erro do Supabase:', res.error); } catch (x) { /* sem console: ok */ }
+      var e = new Error(traduzir(res.error)); e.original = res.error; throw e;
+    }
     return res.data;
   }
 
@@ -66,9 +72,8 @@
       if (!t) return null;
       try { return JSON.parse(t); } catch (e) { return null; }
     },
-    salvarVisitante: function (estado) { guardar(CHAVE_VISITANTE, JSON.stringify(estado)); guardar(CHAVE_EDITADO, '1'); },
-    visitanteEditado: function () { return ler(CHAVE_EDITADO) === '1'; },
-    limparEditado: function () { apagar(CHAVE_EDITADO); },
+    salvarVisitante: function (estado) { guardar(CHAVE_VISITANTE, JSON.stringify(estado)); },
+    limparVisitante: function () { apagar(CHAVE_VISITANTE); apagar(CHAVE_EDITADO); },
     lerUltima: function (usuarioId) { return ler(CHAVE_ULTIMA + usuarioId); },
     guardarUltima: function (usuarioId, id) { guardar(CHAVE_ULTIMA + usuarioId, id); },
 
@@ -84,6 +89,22 @@
       return sb.auth.resetPasswordForEmail(email, { redirectTo: urlDeRetorno() }).then(checar);
     },
     novaSenha: function (senha) { return sb.auth.updateUser({ password: senha }).then(checar); },
+
+    // Google: só aparece se estiver ligado no painel do Supabase (a pergunta é pública, vai com a chave pública).
+    googleAtivo: function () {
+      if (!sb) return Promise.resolve(false);
+      return fetch(cfg.supabaseUrl + '/auth/v1/settings', { headers: { apikey: cfg.supabaseAnonKey } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { return !!(j && j.external && j.external.google); })
+        .catch(function () { return false; });
+    },
+    // Leva a página para o login do Google e volta para cá já com a sessão (cria a conta no primeiro acesso).
+    entrarComGoogle: function () {
+      return sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: urlDeRetorno(), queryParams: { prompt: 'select_account' } }
+      }).then(checar);
+    },
 
     // ----- carteiras (RLS garante que só voltam as da própria pessoa) -----
     listar: function () {

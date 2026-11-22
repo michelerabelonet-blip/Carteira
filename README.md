@@ -3,8 +3,11 @@
 Simulador de alocação: o visitante monta classes e ativos, muda percentuais, define metas, vê quanto
 comprar/vender para chegar nelas e como dividir um novo aporte. Quem cria conta salva várias carteiras.
 
-- **Sem conta (visitante):** tudo funciona e fica salvo no navegador.
-- **Com conta:** carteiras guardadas no Supabase, com salvamento automático.
+- **Login obrigatório:** no ar, quem não entrou vê só a tela de entrada (e-mail e senha, ou Google). Ao clicar em **Sair**,
+  a carteira some da tela e da memória da página.
+- **Com conta:** várias carteiras guardadas no Supabase, com salvamento automático.
+- **Só no seu computador, sem Supabase configurado** (`npm run dev` sem `.env`): o app abre sem login e salva no navegador,
+  para facilitar o desenvolvimento. O build do Render **falha** se as chaves faltarem, para o site nunca subir sem login.
 - **Hospedagem:** site estático no Render. **Código:** GitHub. **Banco e login:** Supabase.
 - Dá para embutir no site do Framer (`framer/embed.html`).
 
@@ -31,6 +34,18 @@ Precisa do Node 18+.
 npm test        # testes da lógica e da trava de segurança do build
 npm run dev     # abre em http://localhost:5173 (modo visitante)
 ```
+
+O SQL do Supabase tem teste próprio, que roda o `schema.sql` num Postgres de verdade (em memória) e confere as regras
+de segurança: cada pessoa só vê as próprias carteiras, anônimo não acessa nada, limite de 20, dados inválidos recusados.
+
+```powershell
+cd sql-test
+npm install     # só na primeira vez
+npm test
+```
+
+> Rode esse teste **sempre que mudar o `supabase/schema.sql`**. Ele existe porque uma política que consultava a própria
+> tabela passou despercebida e só falhou no Supabase real (`infinite recursion detected in policy`).
 
 Para testar contas localmente, copie `.env.exemplo` para `.env`, preencha as duas variáveis e rode `npm run config`.
 
@@ -80,6 +95,23 @@ git push -u origin main
 - **Site URL:** o endereço do Render.
 - **Redirect URLs:** adicione o mesmo endereço (os links de confirmar e-mail e redefinir senha voltam para ele).
 
+### 4b. Entrar com o Google (opcional)
+
+O botão **Continuar com o Google** aparece sozinho na tela de login assim que o Google estiver ligado no Supabase (o app pergunta
+isso ao Supabase; não precisa de novo deploy). A conta é criada no primeiro acesso.
+
+1. Em console.cloud.google.com, crie (ou escolha) um projeto. Em **APIs e serviços > Tela de permissão OAuth**, configure o app
+   (nome, e-mail de suporte, tipo **Externo**) e publique-o.
+2. Em **Credenciais > Criar credenciais > ID do cliente OAuth**, tipo **Aplicativo da Web**.
+   Em **URIs de redirecionamento autorizados**, ponha: `https://SEU-PROJETO.supabase.co/auth/v1/callback`
+   (o endereço está em *Authentication > Sign In / Providers > Google*, campo "Callback URL").
+3. Copie o **ID do cliente** e a **chave secreta do cliente**.
+4. No Supabase: **Authentication > Sign In / Providers > Google**, ligue, cole os dois valores e salve.
+   A chave secreta fica só no Supabase; nunca no código nem no Render.
+
+Dentro do Framer (iframe) o Google **não deixa** abrir o login; por isso, ali, o botão abre o app em outra aba, em tela cheia, e
+a pessoa continua por lá. Se um e-mail já tem conta com senha, o Supabase junta as duas formas de entrada na mesma conta.
+
 ### 5. Framer
 
 No site do Framer, adicione um componente **Embed**, modo **HTML**, e cole `framer/embed.html`
@@ -114,6 +146,9 @@ outros domínios; se faltar algum, o embed fica em branco ali).
 
 ## Decisões de projeto
 
+- **Login obrigatório:** o app só monta a carteira depois da sessão confirmada pelo Supabase. A tela de login é uma tela à parte
+  (`#telaLogin`); a do app (`#app`) fica `hidden` e vazia enquanto não há sessão. Isso esconde a carteira de quem saiu, mas quem
+  protege os dados de verdade continua sendo a RLS do banco.
 - **Login por e-mail e senha** (fluxo `implicit` do Supabase): funciona dentro de iframe, onde o navegador separa o armazenamento
   do iframe do da aba aberta por links de e-mail (com o fluxo PKCE, a confirmação falharia no embed).
 - **Cores:** paleta categórica de 8 cores, ordem fixa, validada para daltonismo com `validate_palette.js` do skill de dataviz
@@ -138,6 +173,7 @@ public/                 o site (é isso que o Render publica)
 supabase/schema.sql     tabela, RLS e gatilho
 scripts/                gerar-config.js (build), servir.js (local)
 test/                   logica.test.js, config.test.js
+sql-test/               testa o supabase/schema.sql num Postgres em memória (PGlite)
 framer/embed.html       código para colar no Framer
 render.yaml             Blueprint do Render
 ```

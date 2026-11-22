@@ -34,6 +34,14 @@ test('gerar-config', async (t) => {
     assert.match(fs.readFileSync(destino, 'utf8'), /MONTADOR_CONFIG = \{\};/);
   });
 
+  await t.test('no Render, sem variáveis o build falha (o site não pode ficar sem login)', () => {
+    fs.rmSync(destino, { force: true });
+    const r = rodar({ RENDER: 'true' });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /SUPABASE_URL/);
+    assert.equal(fs.existsSync(destino), false);
+  });
+
   await t.test('aceita a chave anon', () => {
     const r = rodar({ SUPABASE_URL: 'https://abcdefgh.supabase.co/', SUPABASE_ANON_KEY: jwt('anon') });
     assert.equal(r.status, 0, r.stderr);

@@ -12,9 +12,12 @@ Leia o `README.md` para a arquitetura e os passos de publicação.
 - Sem CDN e sem script inline: a CSP do `render.yaml` só permite scripts do próprio site. Mude a CSP e o `npm run dev` acompanha (lê do mesmo arquivo).
 - Cores: no máximo 8 classes, uma cor da paleta validada por classe (`CORES` em `carteira-logica.js`). Não gere uma 9ª cor.
 - Embed no Framer: o app avisa a altura por `postMessage` (`montadorAltura`).
+- **Login obrigatório** quando o Supabase está configurado: telas `#telaLogin`, `#telaCarregando` e `#app` (função `mostrarTela` em `app.js`). Nenhum dado de carteira aparece nem fica no DOM sem sessão (`aoSair` esvazia tudo). O modo visitante só existe sem Supabase (desenvolvimento local), e o build do Render falha sem as chaves.
+- Google: botão aparece só se o Supabase tiver o provedor ligado (`googleAtivo`). Dentro de iframe o Google bloqueia, então o botão abre `?entrar=google` em outra aba.
 
 ## Comandos
 
 - `npm test` testes automáticos
+- `cd sql-test && npm test` testa o `supabase/schema.sql` num Postgres de verdade. **Rode sempre que mudar o SQL.** Política de RLS nunca pode consultar a própria tabela (recursão infinita); regras que precisam contar linhas vão em gatilho.
 - `npm run dev` servidor local em http://localhost:5173
 - `npm run config` gera `public/config.js` a partir do `.env`

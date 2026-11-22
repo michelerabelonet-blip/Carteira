@@ -53,6 +53,24 @@
   // conta
   var usuarioId = null, carteiras = [], carteiraAtual = null;
   var timerSalvar = null, salvando = false, pendente = false;
+  var modoVisitante = false;      // sem Supabase configurado (só no computador): funciona sem login
+  var sessaoConhecida = false;    // já recebemos a primeira resposta sobre a sessão?
+  var sessaoAtual = null;
+  var recuperando = false;        // abriu pelo link de "esqueci a senha"
+  var googleDisponivel = false;
+
+  // Qual tela está à vista: 'carregando', 'login' ou 'app'. Fora do 'app', nenhum dado de carteira aparece.
+  function mostrarTela(qual, texto, comErro) {
+    $('telaCarregando').hidden = qual !== 'carregando';
+    $('telaLogin').hidden = qual !== 'login';
+    $('app').hidden = qual !== 'app';
+    if (qual === 'carregando') {
+      var t = $('carregandoTexto');
+      t.textContent = texto || 'Verificando sua conta…';
+      t.classList.toggle('erro', !!comErro);
+      $('carregandoAcoes').hidden = !comErro;
+    }
+  }
 
   // ---------- avisos e status ----------
   var timerAviso = null;
@@ -690,7 +708,8 @@
     clearTimeout(timerSalvar);
     timerSalvar = null;
     if (!carteiraAtual) {
-      if (usuarioId) return; // logado, mas ainda carregando: não escreve nada como visitante
+      // Com login obrigatório nunca se guarda carteira no navegador; só no modo local, sem Supabase.
+      if (!modoVisitante) return Promise.resolve();
       A.salvarVisitante(estado);
       statusVisitante();
       return Promise.resolve();
@@ -713,88 +732,108 @@
   // ---------- conta ----------
   function iniciarConta() {
     $('conta').hidden = false;
-    $('btnEntrar').addEventListener('click', function () { abrirConta('entrar'); });
     $('btnSair').addEventListener('click', sair);
+    $('btnSairCarregando').addEventListener('click', sair);
+    $('btnCarregarDeNovo').addEventListener('click', function () {
+      if (sessaoAtual) aoEntrar(sessaoAtual); else location.reload();
+    });
     $('selCarteira').addEventListener('change', function () { trocarCarteira($('selCarteira').value); });
     $('btnNovaCarteira').addEventListener('click', novaCarteira);
     $('btnRenomearCarteira').addEventListener('click', renomearCarteira);
     $('btnDuplicarCarteira').addEventListener('click', duplicarCarteira);
     $('btnExcluirCarteira').addEventListener('click', excluirCarteira);
-    prepararDialogoConta();
+    prepararTelaLogin();
+    A.googleAtivo().then(function (ok) { googleDisponivel = ok; atualizarBlocoGoogle(); });
     // o supabase-js avisa a sessão atual logo ao assinar (INITIAL_SESSION)
     A.aoMudarSessao(function (evento, sessao) {
       setTimeout(function () { aoMudarSessao(evento, sessao); }, 0);
     });
+    // se a resposta sobre a sessão não vier (sem internet, por exemplo), não deixa a página parada
+    setTimeout(function () {
+      if (!sessaoConhecida) mostrarTela('carregando', 'Não foi possível verificar a sua conta. Confira a internet e tente de novo.', true);
+    }, 12000);
   }
 
   function aoMudarSessao(evento, sessao) {
-    if (evento === 'PASSWORD_RECOVERY') abrirConta('nova-senha');
+    if (evento === 'PASSWORD_RECOVERY') { recuperando = true; mostrarLogin('nova-senha', true); }
     var id = sessao && sessao.user ? sessao.user.id : null;
-    if (id === usuarioId) return;
+    var primeira = !sessaoConhecida;
+    sessaoConhecida = true;
+    if (!primeira && id === usuarioId) return;
     usuarioId = id;
-    if (!id) aoSair(); else aoEntrar(sessao);
+    sessaoAtual = sessao || null;
+    if (!id) aoSair(primeira); else aoEntrar(sessao);
   }
 
   function mostrarBarraConta(email) {
     $('contaEmail').textContent = email || '';
-    $('btnEntrar').hidden = !!email;
-    $('btnSair').hidden = !email;
     $('barraCarteiras').hidden = !email;
   }
 
   function aoEntrar(sessao) {
-    mostrarBarraConta(sessao.user.email);
-    status('Carregando suas carteiras…');
     var meuId = usuarioId;
+    mostrarBarraConta(sessao.user.email);
+    if (!recuperando) mostrarTela('carregando', 'Carregando suas carteiras…');
     return A.listar().then(function (lista) {
       if (usuarioId !== meuId) return;
       carteiras = lista;
-      var editado = A.visitanteEditado();
       if (!carteiras.length) {
-        return A.criar('Minha carteira', estado).then(function (nova) {
+        // primeira vez desta conta: começa com o exemplo
+        var inicial = L.exemplo();
+        return A.criar('Minha carteira', inicial).then(function (nova) {
           carteiras = [nova];
-          abrirRegistro(nova, estado);
+          abrirRegistro(nova, inicial);
         });
       }
-      var abrirUltima = function () {
-        var guardada = A.lerUltima(meuId);
-        var alvo = carteiras.filter(function (c) { return c.id === guardada; })[0] || carteiras[0];
-        return carregarCarteira(alvo.id);
-      };
-      if (editado && carteiras.length < A.LIMITE_CARTEIRAS) {
-        return perguntar({
-          titulo: 'Guardar a carteira que você montou?',
-          texto: 'Você montou uma carteira antes de entrar. Quer guardá-la como uma nova carteira na sua conta?',
-          ok: 'Guardar como nova', extra: 'Descartar'
-        }).then(function (r) {
-          if (r.acao === 'ok') {
-            return A.criar('Carteira de visitante', estado).then(function (nova) {
-              carteiras.unshift(nova);
-              abrirRegistro(nova, estado);
-            });
-          }
-          return abrirUltima();
-        });
-      }
-      return abrirUltima();
+      var guardada = A.lerUltima(meuId);
+      var alvo = carteiras.filter(function (c) { return c.id === guardada; })[0] || carteiras[0];
+      return carregarCarteira(alvo.id);
     }).then(function () {
-      A.limparEditado();
+      if (usuarioId === meuId && !recuperando) mostrarTela('app');
     }).catch(function (e) {
-      status('Não foi possível carregar: ' + e.message, true, 'Tentar de novo', function () { aoEntrar(sessao); });
+      if (usuarioId !== meuId) return;
+      mostrarTela('carregando', 'Não foi possível carregar as suas carteiras: ' + e.message, true);
     });
   }
 
-  function aoSair() {
+  // Ao sair, a carteira some da tela e da memória da página: só fica a tela de login.
+  function aoSair(primeira) {
     clearTimeout(timerSalvar);
     carteiraAtual = null;
     carteiras = [];
+    sessaoAtual = null;
     mostrarBarraConta('');
-    var v = L.validar(A.lerVisitante());
-    estado = v || L.exemplo();
+    estado = L.exemplo();
     aporteValor = 0;
     zerarHistorico();
-    renderTudo();
-    statusVisitante();
+    limparTelaDoApp();
+    if (!recuperando) mostrarLogin('entrar', !primeira);
+    // abriu pelo botão "Continuar com o Google" de dentro de um iframe: segue direto para o Google
+    if (primeira && /[?&]entrar=google\b/.test(location.search)) {
+      history.replaceState(null, '', location.pathname);
+      iniciarGoogle();
+    }
+    var d = erroNaUrl();
+    if (d) $('contaErro').textContent = d;
+  }
+
+  function limparTelaDoApp() {
+    ['corpo', 'kpis', 'metasPainel', 'selCarteira', 'legendaGrafico', 'aviso', 'statusSalvo'].forEach(function (id) { $(id).textContent = ''; });
+    $('inpTotal').value = '';
+    refs = { classes: {}, ativos: {}, metas: {}, kpis: {} };
+    grafico.atualizar({ total: 0, classes: [] }, { modo: modoGrafico, grupo: grupoBarras });
+    grafico.destacar(null, null);
+  }
+
+  // O Supabase devolve o motivo na URL quando o Google recusa ou o link expirou.
+  function erroNaUrl() {
+    var m = /[#&?]error_description=([^&]+)/.exec(location.hash + location.search);
+    if (!m && !/[#&?]error=/.test(location.hash + location.search)) return '';
+    history.replaceState(null, '', location.pathname);
+    var desc = '';
+    try { desc = decodeURIComponent((m && m[1] || '').replace(/\+/g, ' ')).toLowerCase(); } catch (e) { /* ignora */ }
+    if (desc.indexOf('expired') >= 0) return 'O link expirou. Peça um novo.';
+    return 'Não foi possível concluir a entrada. Tente de novo.';
   }
 
   function sair() {
@@ -893,7 +932,7 @@
     }).catch(function (e) { avisar(e.message); });
   }
 
-  // ---------- diálogo de conta ----------
+  // ---------- tela de login ----------
   var modoConta = 'entrar';
 
   function definirModoConta(modo) {
@@ -907,37 +946,69 @@
     $('contaCampoSenha').setAttribute('autocomplete', modo === 'entrar' ? 'current-password' : 'new-password');
     $('contaOk').textContent = titulos[modo] === 'Definir nova senha' ? 'Salvar senha' : titulos[modo];
     $('btnEsqueci').hidden = modo !== 'entrar';
+    $('contaCancelar').hidden = modo !== 'nova-senha';
     $('contaTexto').textContent = modo === 'criar'
       ? 'Use uma senha com 8 ou mais caracteres. Dependendo da configuração, você receberá um e-mail para confirmar a conta.'
       : (modo === 'nova-senha' ? 'Escolha uma senha nova, com 8 ou mais caracteres.' : '');
     $('contaErro').textContent = '';
+    $('contaInfo').textContent = '';
+    atualizarBlocoGoogle();
   }
 
-  function abrirConta(modo) {
+  function atualizarBlocoGoogle() {
+    $('blocoGoogle').hidden = !(googleDisponivel && modoConta !== 'nova-senha');
+  }
+
+  // Mostra a tela de login (e esvazia os campos, para não sobrar e-mail nem senha de quem saiu).
+  function mostrarLogin(modo, focar) {
+    mostrarTela('login');
     definirModoConta(modo);
+    $('contaCampoEmail').value = '';
     $('contaCampoSenha').value = '';
-    var dlg = $('dlgConta');
-    if (!dlg.open) dlg.showModal();
-    (modo === 'nova-senha' ? $('contaCampoSenha') : $('contaCampoEmail')).focus();
+    if (focar) setTimeout(function () { (modo === 'nova-senha' ? $('contaCampoSenha') : $('contaCampoEmail')).focus(); }, 0);
   }
 
   function emailValido(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 254; }
 
-  function prepararDialogoConta() {
-    var dlg = $('dlgConta');
-    Array.prototype.forEach.call($('contaAbas').querySelectorAll('.aba'), function (b) {
-      b.addEventListener('click', function () { definirModoConta(b.getAttribute('data-modo')); });
+  // Dentro de um iframe (Framer) o Google não deixa abrir o login; então abre o app em outra aba, em tela cheia.
+  function dentroDeIframe() {
+    try { return window.self !== window.top; } catch (e) { return true; }
+  }
+
+  function iniciarGoogle() {
+    if (dentroDeIframe()) {
+      var url = location.origin + location.pathname + '?entrar=google';
+      // sem a opção "noopener" de propósito: com ela o navegador sempre devolve null e não dá para saber se bloqueou
+      var aba = window.open(url, '_blank');
+      if (aba) { try { aba.opener = null; } catch (e) { /* ok */ } }
+      if (!aba) $('contaErro').textContent = 'O navegador bloqueou a nova aba. Permita pop-ups para este site e tente de novo.';
+      else $('contaInfo').textContent = 'Abrimos o login do Google em outra aba. Continue por lá.';
+      return;
+    }
+    $('btnGoogle').disabled = true;
+    A.entrarComGoogle().catch(function (e) {
+      $('contaErro').textContent = e.message;
+      $('btnGoogle').disabled = false;
     });
-    $('contaCancelar').addEventListener('click', function () { dlg.close(); });
-    dlg.addEventListener('click', function (ev) { if (ev.target === dlg) dlg.close(); });
+  }
+
+  function prepararTelaLogin() {
+    Array.prototype.forEach.call($('contaAbas').querySelectorAll('.aba'), function (b) {
+      b.addEventListener('click', function () { definirModoConta(b.getAttribute('data-modo')); $('contaCampoEmail').focus(); });
+    });
+    $('btnGoogle').addEventListener('click', iniciarGoogle);
+    $('contaCancelar').addEventListener('click', function () {
+      recuperando = false;
+      if (usuarioId) mostrarTela('app'); else mostrarLogin('entrar', true);
+    });
 
     $('btnEsqueci').addEventListener('click', function () {
       var email = $('contaCampoEmail').value.trim();
+      $('contaErro').textContent = '';
       if (!emailValido(email)) { $('contaErro').textContent = 'Digite seu e-mail acima para receber o link.'; $('contaCampoEmail').focus(); return; }
       $('btnEsqueci').disabled = true;
       A.esqueciSenha(email).then(function () {
-        dlg.close();
-        avisar('Se existir uma conta com esse e-mail, enviamos o link para criar uma nova senha.');
+        $('contaInfo').textContent = 'Se existir uma conta com esse e-mail, enviamos o link para criar uma nova senha.';
       }).catch(function (e) { $('contaErro').textContent = e.message; }).then(function () { $('btnEsqueci').disabled = false; });
     });
 
@@ -953,14 +1024,23 @@
       var ok = $('contaOk');
       ok.disabled = true;
       var acao;
-      if (modoConta === 'entrar') acao = A.entrar(email, senha).then(function () { dlg.close(); });
-      else if (modoConta === 'criar') {
+      if (modoConta === 'entrar') {
+        // quem leva para a carteira é o aviso de sessão (onAuthStateChange), em aoEntrar()
+        acao = A.entrar(email, senha).then(function () { $('contaCampoSenha').value = ''; });
+      } else if (modoConta === 'criar') {
         acao = A.criarConta(email, senha).then(function (res) {
-          dlg.close();
-          if (!(res && res.session)) avisar('Enviamos um e-mail para ' + email + '. Se for um cadastro novo, confirme pelo link e depois entre. Se já tinha conta, use “Entrar”.');
+          $('contaCampoSenha').value = '';
+          if (!(res && res.session)) {
+            definirModoConta('entrar');
+            $('contaInfo').textContent = 'Enviamos um e-mail para ' + email + '. Se for um cadastro novo, confirme pelo link e depois entre aqui. Se já tinha conta, é só entrar.';
+          }
         });
       } else {
-        acao = A.novaSenha(senha).then(function () { dlg.close(); avisar('Senha alterada.'); });
+        acao = A.novaSenha(senha).then(function () {
+          recuperando = false;
+          $('contaCampoSenha').value = '';
+          if (usuarioId) mostrarTela('app'); else mostrarLogin('entrar', true);
+        });
       }
       acao.catch(function (e) { erro.textContent = e.message; }).then(function () { ok.disabled = false; });
     });
@@ -982,14 +1062,26 @@
 
   // ---------- início ----------
   function iniciar() {
-    var salvo = L.validar(A.lerVisitante());
-    estado = salvo || L.exemplo();
-    confirmado = L.clonar(estado);
+    modoVisitante = !A.contasDisponiveis();
     grafico = G.criar($('grafico'), $('dica'), { aoDestacar: definirDestaque });
     ligarEventosGerais();
-    renderTudo();
-    atualizarBotoesHistorico();
-    if (A.contasDisponiveis()) { statusVisitante(); iniciarConta(); } else statusVisitante();
+    if (modoVisitante) {
+      // sem Supabase configurado (teste no computador): funciona sem login, salvando no navegador
+      estado = L.validar(A.lerVisitante()) || L.exemplo();
+      confirmado = L.clonar(estado);
+      renderTudo();
+      atualizarBotoesHistorico();
+      statusVisitante();
+      mostrarTela('app');
+    } else {
+      // com contas: nada de carteira aparece antes do login. Apaga qualquer carteira de visitante antiga.
+      A.limparVisitante();
+      estado = L.exemplo();
+      confirmado = L.clonar(estado);
+      atualizarBotoesHistorico();
+      mostrarTela('carregando');
+      iniciarConta();
+    }
     observarAltura();
   }
 

@@ -37,7 +37,12 @@ function gravar(cfg, aviso) {
 }
 
 if (!url && !chave) {
-  gravar({}, 'AVISO: SUPABASE_URL e SUPABASE_ANON_KEY não definidas. O app vai funcionar só no modo visitante (sem contas).');
+  // No Render (que define RENDER=true) o site exige login; sem as chaves ele abriria a carteira para qualquer um.
+  if (env.RENDER) {
+    console.error('ERRO: defina SUPABASE_URL e SUPABASE_ANON_KEY em Environment. Sem elas o site ficaria sem login.');
+    process.exit(1);
+  }
+  gravar({}, 'AVISO: SUPABASE_URL e SUPABASE_ANON_KEY não definidas. Só no seu computador: o app abre sem login (modo visitante).');
   process.exit(0);
 }
 

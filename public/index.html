@@ -9,6 +9,54 @@
 <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
+
+<!-- Telas de entrada: com contas ativas, a carteira só aparece depois do login. -->
+<section class="tela-login" id="telaLogin" hidden aria-label="Entrar no Montador de Carteira">
+  <div class="login-cartao">
+    <p class="login-marca">Montador de Carteira</p>
+    <p class="login-sub">Monte a distribuição entre classes e ativos, defina metas e veja quanto aportar. Entre para ver e guardar as suas carteiras.</p>
+    <form id="formConta" novalidate>
+      <h1 id="contaTitulo">Entrar</h1>
+      <div class="abas" id="contaAbas" role="group" aria-label="Escolha">
+        <button type="button" class="aba" data-modo="entrar" aria-pressed="true">Entrar</button>
+        <button type="button" class="aba" data-modo="criar" aria-pressed="false">Criar conta</button>
+      </div>
+      <p class="dialogo-texto" id="contaTexto"></p>
+      <div id="blocoGoogle" hidden>
+        <button type="button" class="btn-google" id="btnGoogle">
+          <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.5l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.5-4.2 7-10.3 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+          <span>Continuar com o Google</span>
+        </button>
+        <p class="ou"><span>ou use e-mail e senha</span></p>
+      </div>
+      <label class="dialogo-campo" id="rotEmail">
+        <span>E-mail</span>
+        <input id="contaCampoEmail" class="campo" type="email" autocomplete="email" inputmode="email" maxlength="254">
+      </label>
+      <label class="dialogo-campo">
+        <span id="rotSenha">Senha</span>
+        <input id="contaCampoSenha" class="campo" type="password" autocomplete="current-password" maxlength="72">
+      </label>
+      <p class="erro" id="contaErro" role="alert"></p>
+      <p class="info" id="contaInfo" role="status"></p>
+      <div class="dialogo-acoes">
+        <button type="button" class="btn link" id="btnEsqueci">Esqueci a senha</button>
+        <button type="button" class="btn" id="contaCancelar" hidden>Cancelar</button>
+        <button type="submit" class="btn primario" id="contaOk">Entrar</button>
+      </div>
+    </form>
+    <p class="login-rodape">Ferramenta de simulação, sem caráter de recomendação de investimento.</p>
+  </div>
+</section>
+
+<section class="tela-carregando" id="telaCarregando" hidden aria-live="polite">
+  <p id="carregandoTexto">Verificando sua conta…</p>
+  <div class="grupo-botoes" id="carregandoAcoes" hidden>
+    <button type="button" class="btn" id="btnCarregarDeNovo">Tentar de novo</button>
+    <button type="button" class="btn" id="btnSairCarregando">Sair</button>
+  </div>
+</section>
+
 <div class="app" id="app">
 
   <header class="topo">
@@ -18,8 +66,7 @@
     </div>
     <div class="conta" id="conta" hidden>
       <span class="conta-email" id="contaEmail"></span>
-      <button type="button" class="btn" id="btnEntrar">Entrar</button>
-      <button type="button" class="btn" id="btnSair" hidden>Sair</button>
+      <button type="button" class="btn" id="btnSair">Sair</button>
     </div>
   </header>
 
@@ -108,31 +155,6 @@
       <button type="button" class="btn" id="perguntaCancelar">Cancelar</button>
       <button type="button" class="btn" id="perguntaExtra" hidden></button>
       <button type="submit" class="btn primario" id="perguntaOk">OK</button>
-    </div>
-  </form>
-</dialog>
-
-<dialog id="dlgConta" class="dialogo" aria-labelledby="contaTitulo">
-  <form id="formConta" novalidate>
-    <h2 id="contaTitulo">Entrar</h2>
-    <div class="abas" id="contaAbas" role="group" aria-label="Escolha">
-      <button type="button" class="aba" data-modo="entrar" aria-pressed="true">Entrar</button>
-      <button type="button" class="aba" data-modo="criar" aria-pressed="false">Criar conta</button>
-    </div>
-    <p class="dialogo-texto" id="contaTexto"></p>
-    <label class="dialogo-campo" id="rotEmail">
-      <span>E-mail</span>
-      <input id="contaCampoEmail" class="campo" type="email" autocomplete="email" inputmode="email" maxlength="254">
-    </label>
-    <label class="dialogo-campo">
-      <span id="rotSenha">Senha</span>
-      <input id="contaCampoSenha" class="campo" type="password" autocomplete="current-password" maxlength="72">
-    </label>
-    <p class="erro" id="contaErro" role="alert"></p>
-    <div class="dialogo-acoes">
-      <button type="button" class="btn link" id="btnEsqueci">Esqueci a senha</button>
-      <button type="button" class="btn" id="contaCancelar">Cancelar</button>
-      <button type="submit" class="btn primario" id="contaOk">Entrar</button>
     </div>
   </form>
 </dialog>
