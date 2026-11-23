@@ -574,6 +574,28 @@ test('formatação', () => {
   assert.equal(L.brl(1234.5, 2), 'R$ 1.234,50');
 });
 
+test('modo privado: valores em reais viram máscara, o resto continua igual', () => {
+  assert.equal(L.estaPrivado(), false);
+  assert.equal(L.brl(1234.5, 2), 'R$ 1.234,50');
+  L.definirPrivado(true);
+  try {
+    assert.equal(L.estaPrivado(), true);
+    assert.equal(L.brl(10000), 'R$ ••••');
+    assert.equal(L.brl(0), 'R$ ••••');
+    assert.equal(L.brl(-5, 2), 'R$ ••••');
+    // percentuais, números dos campos, contas e planilha não mudam
+    assert.equal(L.fmtPct(33.34), '33,3');
+    assert.equal(L.numero(10000), '10.000');
+    const e = L.exemplo();
+    assert.equal(L.total(e), 10000);
+    assert.ok(L.paraCSV(e).includes('2500,00'), 'a planilha leva os valores de verdade');
+    assert.equal(L.projetar({ idadeAtual: 45, idadeFinal: 65, aporte: 500, taxa: 10 }).final > 359000, true);
+  } finally {
+    L.definirPrivado(false);
+  }
+  assert.equal(L.brl(10000), 'R$ 10.000');
+});
+
 test('CSV: separador ;, decimais com vírgula e proteção contra fórmula', () => {
   let e = L.exemplo();
   e = L.renomearAtivo(e, e.classes[0].id, e.classes[0].itens[0].id, '=SOMA(A1)');

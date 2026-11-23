@@ -81,9 +81,15 @@
       <h1>Montador de Carteira</h1>
       <p>Distribua o patrimônio entre classes e ativos, defina metas e veja quanto aportar.</p>
     </div>
-    <div class="conta" id="conta" hidden>
-      <span class="conta-email" id="contaEmail"></span>
-      <button type="button" class="btn" id="btnSair">Sair</button>
+    <div class="topo-direita">
+      <button type="button" class="btn btn-privacidade" id="btnPrivacidade" aria-pressed="false" title="Esconde todos os valores em reais da tela">
+        <span class="icone-olho" id="iconePrivacidade" aria-hidden="true"></span>
+        <span id="rotuloPrivacidade">Ocultar valores</span>
+      </button>
+      <div class="conta" id="conta" hidden>
+        <span class="conta-email" id="contaEmail"></span>
+        <button type="button" class="btn" id="btnSair">Sair</button>
+      </div>
     </div>
   </header>
 

@@ -287,6 +287,7 @@
   }
 
   function compacto(v) {
+    if (L.estaPrivado()) return ''; // no modo privado o eixo não mostra a escala em reais
     if (v >= 1e6) { var m = v / 1e6; return 'R$ ' + (Math.abs(m - Math.round(m)) < 0.05 ? String(Math.round(m)) : m.toFixed(1).replace('.', ',')) + ' mi'; }
     if (v >= 1e3) return 'R$ ' + Math.round(v / 1e3) + ' mil';
     return 'R$ ' + Math.round(v);

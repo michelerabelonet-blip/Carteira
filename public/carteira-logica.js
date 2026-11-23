@@ -534,7 +534,14 @@
     return Number(v).toLocaleString('pt-BR', { minimumFractionDigits: casas || 0, maximumFractionDigits: casas || 0 });
   }
 
-  function brl(v, casas) { return 'R$ ' + numero(v, casas || 0); }
+  // Modo privado ("Ocultar valores"): todo valor em reais escrito na tela vira "R$ ••••".
+  // Só afeta o que é mostrado (brl); contas, campos e a planilha continuam com os números de verdade.
+  var privado = false;
+  var MASCARA = 'R$ ••••';
+  function definirPrivado(sim) { privado = !!sim; }
+  function estaPrivado() { return privado; }
+
+  function brl(v, casas) { return privado ? MASCARA : 'R$ ' + numero(v, casas || 0); }
 
   // 33 -> "33"; 33,333 -> "33,3"
   function fmtPct(p) {
@@ -593,6 +600,7 @@
     planoAjuste: planoAjuste, aplicarMetas: aplicarMetas, planoAporte: planoAporte, aplicarAporte: aplicarAporte,
     simuladorPadrao: simuladorPadrao, validarSimulador: validarSimulador, taxaMensal: taxaMensal, projetar: projetar, aporteNecessario: aporteNecessario,
     rendaPassiva: rendaPassiva, rendaPorPrazo: rendaPorPrazo, patrimonioParaRenda: patrimonioParaRenda,
+    definirPrivado: definirPrivado, estaPrivado: estaPrivado, MASCARA: MASCARA,
     validar: validar, parseNumero: parseNumero, numero: numero, brl: brl, fmtPct: fmtPct, pct: pct,
     paraCSV: paraCSV, tomDoAtivo: tomDoAtivo
   };
